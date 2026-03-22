@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductSource {
+  prom
+  manual
+}
+
+model Product {
+  id             String        @id @default(cuid())
+  externalId     String        @unique
+  sku            String?
+  name           String
+  slug           String        @unique
+  brand          String?
+  categoryId     String?
+  categoryName   String?
+  price          Decimal       @db.Decimal(10, 2)
+  oldPrice       Decimal?      @db.Decimal(10, 2)
+  available      Boolean       @default(false)
+  image          String?
+  description    String?
+  attributesJson String?
+  source         ProductSource @default(prom)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  category Category?     @relation(fields: [categoryId], references: [externalId], onDelete: SetNull)
+  images   ProductImage[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([sku])
+  @@index([brand])
+  @@index([available])
+  @@index([price])
+  @@index([source])
+}
+
+model Category {
+  id               String    @id @default(cuid())
+  externalId       String    @unique
+  name             String
+  parentExternalId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  products         Product[]
+
+  @@index([parentExternalId])
+  @@index([name])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  imageUrl  String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([sortOrder])
+}
+
+
+enum OrderStatus {
+  new
+  confirmed
+  processing
+  shipped
+  completed
+  cancelled
+}
+
+model Order {
+  id             String       @id @default(cuid())
+  orderNumber    String       @unique
+  status         OrderStatus  @default(new)
+  customerName   String
+  phone          String
+  email          String?
+  comment        String?
+  totalAmount    Decimal      @db.Decimal(10, 2)
+  itemsCount     Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  items          OrderItem[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([phone])
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  productId     String
+  productName   String
+  productSku    String?
+  price         Decimal  @db.Decimal(10, 2)
+  quantity      Int      @default(1)
+  createdAt     DateTime @default(now())
+
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
