@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/sync-prom?token=@cron_secret",
-      "schedule": "*/30 * * * *"
-    }
-  ]
-}
+{}
