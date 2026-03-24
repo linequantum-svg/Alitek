@@ -55,29 +55,68 @@ function buildOrderMessage(order: TelegramOrderPayload) {
   ].join("");
 }
 
-export async function sendTelegramOrderNotification(order: TelegramOrderPayload) {
-  if (!BOT_TOKEN || !CHAT_ID) {
-    return { ok: false, skipped: true, reason: "Telegram env vars are not configured" as const };
+export async function sendTelegramOrderNotification(params: {
+  orderNumber: string;
+  customerName: string;
+  phone: string;
+  total?: number | string;
+}) {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!botToken || !chatId) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "Telegram env vars are not configured",
+    };
   }
 
-  const message = buildOrderMessage(order);
-  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: CHAT_ID,
-      text: message,
-      parse_mode: "HTML",
-      disable_web_page_preview: true,
-    }),
-    cache: "no-store",
-  });
+  try {
+    const text = [
+      "🛒 Нове замовлення",
+      `#${params.orderNumber}`,
+      `👤 ${params.customerName}`,
+      `📞 ${params.phone}`,
+      params.total ? `💰 ${params.total}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-  const data = await response.json().catch(() => null);
+    const response = await fetch(
+      `https://api.telegram.org/bot${botToken}/sendMessage`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+        }),
+      }
+    );
 
-  if (!response.ok || !data?.ok) {
-    throw new Error(data?.description || `Telegram request failed: ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      return {
+        ok: false,
+        skipped: false,
+        reason: errorText || "Telegram request failed",
+      };
+    }
+
+    return {
+      ok: true,
+      skipped: false,
+      reason: "",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      skipped: false,
+      reason: error instanceof Error ? error.message : "Unknown telegram error",
+    };
   }
-
-  return { ok: true, skipped: false };
 }
