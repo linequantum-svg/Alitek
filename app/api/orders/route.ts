@@ -115,7 +115,7 @@ export async function POST(request: Request) {
         customerName: order.customerName,
         phone: order.phone,
         email: order.email ?? undefined,
-        comment: order.comment,
+        comment: order.comment ?? undefined,
         totalAmount: Number(order.totalAmount),
         itemsCount: order.itemsCount,
         items: order.items.map((item) => ({
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
         customerName: order.customerName,
         phone: order.phone,
         email: order.email ?? undefined,
-        comment: order.comment,
+        comment: order.comment ?? undefined,
         totalAmount: Number(order.totalAmount),
         itemsCount: order.itemsCount,
         createdAt: order.createdAt,
