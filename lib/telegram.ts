@@ -87,7 +87,7 @@ export async function sendTelegramOrderNotification(params: {
       `#${params.orderNumber}`,
       `👤 ${params.customerName}`,
       `📞 ${params.phone}`,
-      params.total ? `💰 ${params.total}` : "",
+      params.totalAmount ? `💰 ${params.totalAmount}` : "",
     ]
       .filter(Boolean)
       .join("\n");
