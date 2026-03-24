@@ -158,7 +158,7 @@ async function syncProducts(feed: ParsedFeed) {
     const description = toText(offer?.description) || null;
     const available = toBoolean(offer?.available ?? offer?.["@_available"]);
     const pictures = getPictures(offer?.picture);
-    const attributes = getAttributes(offer?.param);
+    const attributes = getAttributes(offer?.param ?? []);
     const baseSlug = slugify(name);
     const slug = baseSlug ? `${baseSlug}-${externalId}` : `product-${externalId}`;
 
