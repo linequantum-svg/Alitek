@@ -63,6 +63,12 @@ export async function sendTelegramOrderNotification(params: {
   comment?: string;
   totalAmount?: number;
   itemsCount?: number;
+  items?: {
+    productName: string;
+    productSku?: string | null;
+    price: number;
+    quantity: number;
+  }[];
 }) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
