@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getCatalogPageData } from "@/lib/storefront-data";
 
 export async function GET(request: Request) {
   try {
@@ -7,73 +7,55 @@ export async function GET(request: Request) {
 
     const query = searchParams.get("q")?.trim() || "";
     const category = searchParams.get("category")?.trim() || "";
+    const brand = searchParams.get("brand")?.trim() || "";
     const available = searchParams.get("available") === "true";
     const sort = searchParams.get("sort")?.trim() || "popular";
     const page = Math.max(Number(searchParams.get("page") || 1), 1);
     const limit = Math.min(Math.max(Number(searchParams.get("limit") || 24), 1), 100);
-    const skip = (page - 1) * limit;
 
-    const where = {
-      isActive: true,
-      ...(available ? { available: true } : {}),
-      ...(category ? { categoryName: category } : {}),
-      ...(query
-        ? {
-            OR: [
-              { name: { contains: query, mode: "insensitive" as const } },
-              { brand: { contains: query, mode: "insensitive" as const } },
-              { sku: { contains: query, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
-    };
+    const data = await getCatalogPageData({
+      query,
+      categoryName: category,
+      brand,
+      availableOnly: available,
+      sort,
+      page,
+      pageSize: limit,
+    });
 
-    const orderBy =
-      sort === "cheap"
-        ? { price: "asc" as const }
-        : sort === "expensive"
-          ? { price: "desc" as const }
-          : { updatedAt: "desc" as const };
-
-    const [products, total, categories] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        include: { images: { orderBy: { sortOrder: "asc" } } },
-      }),
-      prisma.product.count({ where }),
-      prisma.category.findMany({ orderBy: { name: "asc" } }),
-    ]);
-
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
-      total,
+      total: data.total,
       page,
       limit,
-      totalPages: Math.max(Math.ceil(total / limit), 1),
-      categories: categories.map((item) => item.name),
+      totalPages: data.totalPages,
+      categories: data.categories.map((item) => item.name),
       updatedAt: new Date().toISOString(),
-      products: products.map((product) => ({
-        id: product.externalId,
-        sku: product.sku || product.externalId,
+      products: data.products.map((product) => ({
+        id: product.id,
+        sku: product.vendorCode || product.externalId,
+        vendorCode: product.vendorCode || product.externalId,
         name: product.name,
         brand: product.brand || "Без бренду",
         category: product.categoryName || "Без категорії",
-        price: Number(product.price),
+        categoryName: product.categoryName || "Без категорії",
+        categoryId: product.categoryId,
+        price: product.price,
         oldPrice: Number(product.oldPrice || product.price),
         available: product.available,
         sold: 0,
         rating: 4.7,
-        image: product.image || product.images[0]?.imageUrl || "https://placehold.co/800x800?text=No+Image",
+        image: product.image || "https://placehold.co/800x800?text=No+Image",
         description: product.description || "",
-        attributes: product.attributesJson ? JSON.parse(product.attributesJson) : [],
-        images: product.images.map((img) => img.imageUrl),
+        attributes: product.params,
+        params: product.params,
+        images: product.images,
         slug: product.slug,
-        updatedAt: product.updatedAt,
       })),
     });
+
+    response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
+    return response;
   } catch (error) {
     return NextResponse.json(
       {

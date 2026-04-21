@@ -43,7 +43,7 @@ function buildOrderMessage(order: TelegramOrderPayload) {
   const email = order.email ? `\n<b>Email:</b> ${escapeHtml(order.email)}` : "";
 
   return [
-    "🛒 <b>Нове замовлення NovaMart</b>",
+    "🛒 <b>Нове замовлення Alitek</b>",
     `\n<b>Номер:</b> ${escapeHtml(order.orderNumber)}`,
     `\n<b>Клієнт:</b> ${escapeHtml(order.customerName)}`,
     `\n<b>Телефон:</b> ${escapeHtml(order.phone)}`,

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
-export const ADMIN_SESSION_COOKIE = "novamart_admin_session";
+export const ADMIN_SESSION_COOKIE = "alitek_admin_session";
 
 export function getAdminSessionValue() {
   return process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_TOKEN || "";
