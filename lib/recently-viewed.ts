@@ -4,6 +4,7 @@ export type ViewedProduct = {
   name: string;
   price: number;
   image?: string;
+  images?: string[];
 };
 
 const STORAGE_KEY = "alitek-recently-viewed";
@@ -33,6 +34,7 @@ export function pushRecentlyViewed(product: ViewedProduct) {
     name: product.name,
     price: Number(product.price) || 0,
     image: product.image || "",
+    images: Array.isArray(product.images) ? product.images.filter(Boolean) : [],
   });
   saveRecentlyViewed(items.slice(0, 8));
 }

@@ -40,6 +40,7 @@ export default function AnnouncementBar() {
               alignItems: "center",
               minHeight: "24px",
               padding: "0 10px",
+              marginRight: "12px",
               borderRadius: "999px",
               background: "rgba(255,255,255,0.08)",
               border: "1px solid rgba(255,255,255,0.08)",
@@ -55,7 +56,7 @@ export default function AnnouncementBar() {
           <span style={{ opacity: 0.5 }}>•</span>
           <span>Швидка відправка</span>
           <span style={{ opacity: 0.5 }}>•</span>
-          <span>Надійний сервіс</span>
+          <span>Надійно</span>
         </div>
 
         <div

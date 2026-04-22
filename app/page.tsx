@@ -6,6 +6,7 @@ import AddToCartButton from "@/components/AddToCartButton";
 import FavoriteButton from "@/components/FavoriteButton";
 import FAQSection from "@/components/FAQSection";
 import DealOfDay from "@/components/DealOfDay";
+import HoverProductImage from "@/components/HoverProductImage";
 import HomeProductLink from "@/components/HomeProductLink";
 import HomeRecentlyViewed from "@/components/HomeRecentlyViewed";
 import { getCatalogCategoryGroups } from "@/lib/catalog-taxonomy";
@@ -220,17 +221,19 @@ export default async function Home() {
 
                   <HomeProductLink href={`/product/${product.slug}`} className="productLink">
                     <div className="productImageWrap">
-                      <Image
-                        src={product.image || "/no-image.png"}
+                      <HoverProductImage
+                        image={product.image || "/no-image.png"}
+                        images={product.images || []}
                         alt={product.name}
-                        fill
                         sizes="(max-width: 720px) 100vw, (max-width: 1180px) 50vw, 20vw"
-                        style={{ objectFit: "contain" }}
-                        unoptimized
+                        className="productImageHover"
                       />
                     </div>
 
-                    <div className="productName">{product.name}</div>
+                    <div className="productName">
+                      <span className="productNameClamp">{product.name}</span>
+                      <span className="productNameFull">{product.name}</span>
+                    </div>
                     <div className="productPrice">{formatPrice(Number(product.price))}</div>
                   </HomeProductLink>
 
@@ -299,6 +302,25 @@ export default async function Home() {
           font-size: 15px;
           font-weight: 800;
           line-height: 1;
+        }
+        .headerMenu a {
+          display: inline-flex;
+          align-items: center;
+          min-height: 38px;
+          padding: 0 12px;
+          border-radius: 14px;
+          transition:
+            color 0.2s ease,
+            background-color 0.2s ease,
+            box-shadow 0.2s ease,
+            transform 0.2s ease;
+        }
+        .headerMenu a:hover,
+        .headerMenu a:focus-visible {
+          color: #2563eb;
+          background: #eff6ff;
+          box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+          transform: translateY(-1px);
         }
         .headerSecondary {
           min-height: 56px;
@@ -404,12 +426,22 @@ export default async function Home() {
             border-color 0.2s ease,
             transform 0.2s ease,
             box-shadow 0.2s ease,
-            background 0.2s ease;
+            background 0.2s ease,
+            color 0.2s ease;
         }
-        .categoryParentCard:hover {
-          border-color: #d7e2ee;
-          background: linear-gradient(180deg, #ffffff, #f8fbfe);
-          box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
+        .categoryParentCard:hover,
+        .categoryParentCard:focus-visible {
+          border-color: #bfdbfe;
+          background: linear-gradient(180deg, #ffffff, #f3f8ff);
+          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.08);
+          color: #2563eb;
+          transform: translateX(4px);
+        }
+        .categoryParentCard:hover .categoryParentIcon,
+        .categoryParentCard:focus-visible .categoryParentIcon {
+          border-color: #bfdbfe;
+          background: linear-gradient(180deg, #ffffff, #eff6ff);
+          box-shadow: 0 6px 14px rgba(37, 99, 235, 0.1);
         }
         .categoryParentIcon {
           width: 28px;
@@ -449,12 +481,25 @@ export default async function Home() {
           transition:
             border-color 0.2s ease,
             background 0.2s ease,
-            box-shadow 0.2s ease;
+            box-shadow 0.2s ease,
+            color 0.2s ease,
+            transform 0.2s ease;
         }
-        .subcategoryItem:hover {
-          border-color: #d9e5f0;
-          background: linear-gradient(180deg, #ffffff, #f7fbff);
-          box-shadow: 0 7px 14px rgba(15, 23, 42, 0.04);
+        .subcategoryItem:hover,
+        .subcategoryItem:focus-visible {
+          border-color: #bfdbfe;
+          background: linear-gradient(180deg, #ffffff, #f2f7ff);
+          box-shadow: 0 8px 16px rgba(37, 99, 235, 0.07);
+          color: #2563eb;
+          transform: translateX(3px);
+        }
+        .subcategoryItem:hover .subcategoryDot,
+        .subcategoryItem:focus-visible .subcategoryDot {
+          background: #dbeafe;
+        }
+        .subcategoryItem:hover .subcategoryDot::after,
+        .subcategoryItem:focus-visible .subcategoryDot::after {
+          background: #2563eb;
         }
         .subcategoryDot {
           width: 14px;
@@ -582,6 +627,19 @@ export default async function Home() {
           padding: 14px;
           display: flex;
           flex-direction: column;
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease,
+            border-color 0.2s ease,
+            background 0.2s ease;
+          border: 1px solid transparent;
+        }
+        .productCard:hover,
+        .productCard:focus-within {
+          transform: translateY(-4px);
+          border-color: #d8e3f0;
+          background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+          box-shadow: 0 20px 40px rgba(37, 99, 235, 0.12);
         }
         .productTop {
           margin-bottom: 12px;
@@ -620,11 +678,50 @@ export default async function Home() {
           overflow: hidden;
           margin-bottom: 12px;
         }
+        .productImageHover {
+          position: relative;
+          width: 100%;
+          height: 100%;
+        }
         .productName {
-          min-height: 64px;
+          min-height: calc(1.45em * 4);
+          margin-bottom: 12px;
           font-size: 15px;
           line-height: 1.45;
           font-weight: 700;
+          position: relative;
+          color: #0f172a;
+          transition: color 0.22s ease;
+        }
+        .productNameClamp {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .productNameFull {
+          position: absolute;
+          inset: 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.18s ease;
+          min-height: calc(1.45em * 4);
+        }
+        .productCard:hover .productName,
+        .productCard:focus-within .productName {
+          color: #d97706;
+        }
+        .productCard:hover .productNameFull,
+        .productCard:focus-within .productNameFull {
+          opacity: 1;
+        }
+        .productCard:hover .productNameClamp,
+        .productCard:focus-within .productNameClamp {
+          opacity: 0;
         }
         .productPrice {
           margin-top: 10px;

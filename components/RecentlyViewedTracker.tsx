@@ -12,6 +12,7 @@ export default function RecentlyViewedTracker({
     name: string;
     price: number;
     image?: string;
+    images?: string[];
   };
 }) {
   useEffect(() => {

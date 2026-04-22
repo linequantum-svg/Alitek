@@ -208,7 +208,7 @@ function CatalogCard({ product, priority = false }: CardProps) {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "4px",
+            gap: "0",
             flex: "1 1 auto",
             minHeight: 0,
           }}
@@ -241,20 +241,18 @@ function CatalogCard({ product, priority = false }: CardProps) {
           <h3
             className="name"
             style={{
-              margin: 0,
-              fontSize: "13px",
+              margin: "0 0 10px",
+              fontSize: "15px",
               fontWeight: 700,
-              lineHeight: 1.3,
+              lineHeight: 1.45,
               color: "#0f172a",
               textDecoration: "none",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              minHeight: "34px",
+              position: "relative",
+              minHeight: "calc(1.45em * 4)",
             }}
           >
-            {product.name}
+            <span className="nameClamp">{product.name}</span>
+            <span className="nameFull">{product.name}</span>
           </h3>
 
           <div
@@ -288,8 +286,8 @@ function CatalogCard({ product, priority = false }: CardProps) {
         style={{
           display: "grid",
           gap: "10px",
-          marginTop: "8px",
-          paddingTop: "10px",
+          marginTop: "4px",
+          paddingTop: "6px",
           borderTop: "1px solid #edf2f7",
         }}
       >
@@ -916,9 +914,11 @@ export default function CatalogClient({
           border-color: transparent;
           box-shadow: none;
         }
-        .sideLink:hover {
-          background: #f3f6fa;
-          color: #d97706;
+        .sideLink:hover,
+        .sideLink:focus-visible {
+          background: linear-gradient(180deg, #ffffff, #f2f7ff);
+          color: #2563eb;
+          box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
           transform: translateX(4px);
         }
         .sideLink.active {
@@ -931,6 +931,10 @@ export default function CatalogClient({
           font-size: 30px;
           line-height: 1;
           font-weight: 400;
+        }
+        .sideLink:hover span:last-child,
+        .sideLink:focus-visible span:last-child {
+          color: #2563eb;
         }
         .toolbar {
           display: flex;
@@ -998,8 +1002,8 @@ export default function CatalogClient({
         .grid {
           display: grid;
           grid-template-columns: repeat(6, minmax(0, 1fr));
-          column-gap: 14px;
-          row-gap: 28px;
+          column-gap: 12px;
+          row-gap: 36px;
           align-items: start;
           min-width: 0;
         }
@@ -1014,6 +1018,21 @@ export default function CatalogClient({
           border: 1px solid #d5dfeb;
           box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
           overflow: hidden;
+          position: relative;
+          z-index: 0;
+          transition:
+            transform 0.22s ease,
+            border-color 0.22s ease,
+            background 0.22s ease,
+            box-shadow 0.22s ease;
+        }
+        :global(.card:hover),
+        :global(.card:focus-within) {
+          transform: translateY(-4px);
+          border-color: #d8e3f0;
+          background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+          box-shadow: 0 20px 40px rgba(37, 99, 235, 0.12);
+          z-index: 2;
         }
         :global(.productLink) {
           display: flex;
@@ -1133,15 +1152,38 @@ export default function CatalogClient({
           line-height: 1.3;
           color: #0f172a;
           text-decoration: none !important;
+          position: relative;
+          min-height: 34px;
+        }
+        :global(.nameClamp) {
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          min-height: 34px;
+        }
+        :global(.nameFull) {
+          position: absolute;
+          inset: 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.18s ease;
+          min-height: calc(1.45em * 4);
         }
         :global(.productLink:hover .name),
         :global(.productLink:focus-visible .name) {
           color: #d97706;
+        }
+        :global(.productLink:hover .nameFull),
+        :global(.productLink:focus-visible .nameFull) {
+          opacity: 1;
+        }
+        :global(.productLink:hover .nameClamp),
+        :global(.productLink:focus-visible .nameClamp) {
+          opacity: 0;
         }
         :global(.priceRow) {
           display: flex;
