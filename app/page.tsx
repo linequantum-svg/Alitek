@@ -8,6 +8,7 @@ import FAQSection from "@/components/FAQSection";
 import DealOfDay from "@/components/DealOfDay";
 import HomeProductLink from "@/components/HomeProductLink";
 import HomeRecentlyViewed from "@/components/HomeRecentlyViewed";
+import { getCatalogCategoryGroups } from "@/lib/catalog-taxonomy";
 import { getHomepageData, slugifyCategory } from "@/lib/storefront-data";
 import { formatPrice } from "@/lib/utils";
 
@@ -35,8 +36,34 @@ function pickMixedProducts<T extends { id: string; categoryName?: string }>(item
   return mixed;
 }
 
+function getCategoryIcon(title: string) {
+  switch (title) {
+    case "Маркери":
+      return "🖊️";
+    case "Годинники":
+      return "⌚";
+    case "Навушники":
+      return "🎧";
+    case "Комплекти":
+      return "🎁";
+    case "Світильники":
+      return "💡";
+    case "Адаптери":
+      return "🔌";
+    case "Павербанки, зарядні пристрої":
+      return "🔋";
+    case "Чохли для телефонів":
+      return "📱";
+    case "Інше":
+      return "📦";
+    default:
+      return "•";
+  }
+}
+
 export default async function Home() {
   const { categories, popularProducts, showcaseProducts, deal } = await getHomepageData();
+  const homepageCategoryGroups = getCatalogCategoryGroups(categories.map((item) => item.name));
   const mixedPopularProducts = pickMixedProducts(
     [...popularProducts, ...showcaseProducts.filter((item) => !popularProducts.some((popular) => popular.id === item.id))],
     10
@@ -92,12 +119,40 @@ export default async function Home() {
 
           <section className="heroSection">
             <aside className="categorySidebar">
-              {categories.slice(0, 14).map((item) => (
-                <Link key={item.id} href={`/catalog/${slugifyCategory(item.name)}`} className="categoryItem">
-                  <span>{item.name}</span>
-                  <span className="categoryArrow">›</span>
-                </Link>
-              ))}
+              <div className="sidebarKicker">Категорії</div>
+
+              {homepageCategoryGroups.map((group) => {
+                const isStandaloneGroup = group.title === "Маркери";
+                const hasVisibleChildren = !isStandaloneGroup && group.items.length > 0;
+                const titleToShow = isStandaloneGroup ? group.items[0] : group.title;
+                const parentHref = isStandaloneGroup
+                  ? `/catalog/${slugifyCategory(group.items[0])}`
+                  : `/catalog?category=${encodeURIComponent(group.title)}`;
+
+                return (
+                  <div className="categoryGroup" key={group.title}>
+                    <Link href={parentHref} className="categoryParentCard">
+                      <span className="categoryParentIcon">{getCategoryIcon(group.title)}</span>
+                      <span>{titleToShow}</span>
+                    </Link>
+
+                    {hasVisibleChildren ? (
+                      <div className="subcategoryRail">
+                        {group.items.map((categoryName) => (
+                          <Link
+                            key={categoryName}
+                            href={`/catalog/${slugifyCategory(categoryName)}`}
+                            className="subcategoryItem"
+                          >
+                            <span className="subcategoryDot" />
+                            <span>{categoryName}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </aside>
 
             <div className="heroContent">
@@ -295,7 +350,7 @@ export default async function Home() {
         .heroSection {
           margin-top: 18px;
           display: grid;
-          grid-template-columns: 370px minmax(0, 1fr);
+          grid-template-columns: 280px minmax(0, 1fr);
           gap: 18px;
           align-items: start;
         }
@@ -308,30 +363,117 @@ export default async function Home() {
           box-shadow: 0 16px 34px rgba(15, 23, 42, 0.05);
         }
         .categorySidebar {
-          padding: 10px;
+          padding: 16px 12px 12px;
           display: grid;
           gap: 6px;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 251, 253, 0.98)),
+            radial-gradient(circle at top right, rgba(148, 163, 184, 0.08), transparent 34%);
+          border: 1px solid #e6edf5;
         }
-        .categoryItem {
-          min-height: 44px;
-          padding: 0 14px;
+        .sidebarKicker {
+          color: #3b82f6;
+          font-size: 14px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          padding: 0 6px;
+        }
+        .infoCard {
+        }
+        .categoryGroup {
+          display: grid;
+          gap: 4px;
+        }
+        .categoryParentCard {
+          min-height: 46px;
+          padding: 0 12px;
           border-radius: 14px;
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 10px;
+          gap: 8px;
           text-decoration: none;
           color: #111827;
-          font-size: 15px;
-          font-weight: 700;
+          background: linear-gradient(180deg, #ffffff, #fcfdff);
+          border: 1px solid #e3eaf2;
+          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.03);
+          font-size: 16px;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          transition:
+            border-color 0.2s ease,
+            transform 0.2s ease,
+            box-shadow 0.2s ease,
+            background 0.2s ease;
         }
-        .categoryItem:hover {
-          background: #f8fafc;
+        .categoryParentCard:hover {
+          border-color: #d7e2ee;
+          background: linear-gradient(180deg, #ffffff, #f8fbfe);
+          box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
         }
-        .categoryArrow {
-          color: #9ca3af;
-          font-size: 22px;
-          line-height: 1;
+        .categoryParentIcon {
+          width: 28px;
+          height: 28px;
+          border-radius: 10px;
+          background: linear-gradient(180deg, #ffffff, #f4f8fc);
+          border: 1px solid #e3eaf2;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          flex-shrink: 0;
+        }
+        .subcategoryRail {
+          margin-left: 12px;
+          padding-left: 8px;
+          border-left: 2px solid #e2eaf4;
+          display: grid;
+          gap: 4px;
+        }
+        .subcategoryItem {
+          min-height: 34px;
+          padding: 4px 8px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          text-decoration: none;
+          color: #111827;
+          background: linear-gradient(180deg, #ffffff, #fbfcfe);
+          border: 1px solid #e6edf4;
+          box-shadow: 0 5px 12px rgba(15, 23, 42, 0.025);
+          font-size: 14px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          line-height: 1.15;
+          transition:
+            border-color 0.2s ease,
+            background 0.2s ease,
+            box-shadow 0.2s ease;
+        }
+        .subcategoryItem:hover {
+          border-color: #d9e5f0;
+          background: linear-gradient(180deg, #ffffff, #f7fbff);
+          box-shadow: 0 7px 14px rgba(15, 23, 42, 0.04);
+        }
+        .subcategoryDot {
+          width: 14px;
+          height: 14px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: #eff5fb;
+          flex-shrink: 0;
+          position: relative;
+        }
+        .subcategoryDot::after {
+          content: "";
+          width: 3px;
+          height: 3px;
+          border-radius: 999px;
+          background: #60a5fa;
+          display: block;
         }
         .heroContent {
           display: grid;
@@ -528,6 +670,36 @@ export default async function Home() {
           .quickTiles,
           .productsGrid {
             grid-template-columns: 1fr;
+          }
+          .categorySidebar {
+            padding: 14px 10px 10px;
+          }
+          .categoryParentCard {
+            min-height: 42px;
+            padding: 0 10px;
+            border-radius: 12px;
+            font-size: 15px;
+          }
+          .categoryParentIcon {
+            width: 24px;
+            height: 24px;
+            border-radius: 9px;
+            font-size: 14px;
+          }
+          .subcategoryRail {
+            margin-left: 10px;
+            padding-left: 8px;
+            gap: 4px;
+          }
+          .subcategoryItem {
+            min-height: 32px;
+            padding: 4px 7px;
+            border-radius: 10px;
+            font-size: 13px;
+          }
+          .subcategoryDot {
+            width: 13px;
+            height: 13px;
           }
         }
       `}</style>

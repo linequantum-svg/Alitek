@@ -223,7 +223,7 @@ const getCachedHomepageData = unstable_cache(
       null;
 
     return {
-      categories: categories.slice(0, 8),
+      categories,
       popularProducts,
       showcaseProducts: mappedProducts,
       deal,
@@ -336,7 +336,7 @@ export async function getHomepageData() {
       const brands = Array.from(new Set(sortedProducts.map((item) => item.brand).filter(Boolean))).slice(0, 10);
 
       return {
-        categories: categories.slice(0, 8),
+        categories,
         popularProducts,
         showcaseProducts: sortedProducts.slice(0, 12),
         deal,

@@ -17,7 +17,6 @@ export function getWhyBuyItems(product: any) {
   const items: string[] = [];
 
   if (product?.available) items.push("Товар є в наявності");
-  if (product?.brand) items.push(`Бренд: ${product.brand}`);
   if (product?.oldPrice && Number(product.oldPrice) > Number(product.price)) {
     items.push("Є вигідна ціна зі знижкою");
   }

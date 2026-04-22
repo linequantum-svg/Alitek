@@ -14,7 +14,6 @@ import ProductCharacteristics from "@/components/ProductCharacteristics";
 import WhyBuyBlock from "@/components/WhyBuyBlock";
 import ProductFaqMini from "@/components/ProductFaqMini";
 import ProductSupportCard from "@/components/ProductSupportCard";
-import ProductBrandBlock from "@/components/ProductBrandBlock";
 import ProductClientExtras from "@/components/ProductClientExtras";
 import { slugifyCategory } from "@/lib/storefront-data";
 import { getProductCache, setProductCache } from "@/lib/storefront-client-cache";
@@ -257,9 +256,6 @@ export default function ProductPageClient({
                   })}
                 </div>
               ) : null}
-              <div className="galleryNote">
-                Актуальні фото з картки товару. Перед відправкою можна уточнити комплектацію.
-              </div>
               <ProductInfoCards />
             </div>
 
@@ -267,14 +263,8 @@ export default function ProductPageClient({
               <div className="infoCard">
                 <div className="pill">{categoryName}</div>
                 <h1>{product.name}</h1>
-                {product.brand ? <div className="brandLine">{product.brand}</div> : null}
 
                 <div className="metaList">
-                  {product.brand ? (
-                    <div>
-                      <strong>Бренд:</strong> {product.brand}
-                    </div>
-                  ) : null}
                   {product.vendorCode ? (
                     <div>
                       <strong>Артикул:</strong> {product.vendorCode}
@@ -336,8 +326,7 @@ export default function ProductPageClient({
 
           <ProductCharacteristics items={chars} />
           <WhyBuyBlock items={whyBuy} />
-          <ProductBrandBlock brand={product.brand} />
-          <ProductSupportCard brand={product.brand} />
+          <ProductSupportCard />
           <ProductFaqMini />
           <ProductClientExtras
             currentId={String(product.id)}
@@ -367,11 +356,6 @@ export default function ProductPageClient({
                           unoptimized
                         />
                       </div>
-                        {item.brand ? (
-                          <div className="relatedMetaRow">
-                            <div className="relatedBrand">{item.brand}</div>
-                          </div>
-                        ) : null}
                       <div className="relatedName">{item.name}</div>
                       <div className="relatedPrice">{formatPrice(Number(item.price))}</div>
                     </Link>
@@ -413,7 +397,6 @@ const styles = `
   .infoCard, .descriptionCard { padding:26px; }
   .pill { display:inline-block; background:linear-gradient(135deg,#fff4e8 0%,#f4e5d7 100%); color:#8b5e3c; font-weight:800; font-size:13px; padding:8px 12px; border-radius:999px; margin-bottom:16px; }
   .infoCard h1 { margin:0; font-size:38px; line-height:1.08; font-weight:800; letter-spacing:-.03em; }
-  .brandLine { margin-top:10px; color:#64748b; font-size:14px; font-weight:700; }
   .metaList { margin-top:16px; color:#64748b; font-size:15px; line-height:1.7; display:grid; gap:4px; }
   .metaList strong { color:#0f172a; }
   .priceCard { margin-top:22px; border:1px solid #e7ecf3; border-radius:22px; padding:18px; background:linear-gradient(180deg,#ffffff 0%,#fbfcfd 100%); display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; }
@@ -442,8 +425,6 @@ const styles = `
   .relatedCard:hover { transform:translateY(-3px); border-color:#d8c2af; box-shadow:0 22px 36px rgba(15,23,42,.08); }
   .relatedLink { text-decoration:none; color:#0f172a; display:block; }
   .relatedImageWrap { position:relative; height:220px; border-radius:20px; background:linear-gradient(180deg,#fbfbfb 0%,#f1f5f9 100%); overflow:hidden; margin-bottom:12px; }
-  .relatedMetaRow { display:flex; justify-content:space-between; gap:10px; margin-bottom:10px; }
-  .relatedBrand { display:inline-flex; align-items:center; min-height:28px; padding:0 10px; border-radius:999px; background:#f8fafc; border:1px solid #e7ecf3; font-size:12px; color:#64748b; font-weight:700; }
   .relatedName { font-size:15px; line-height:1.45; min-height:66px; font-weight:700; }
   .relatedPrice { margin-top:10px; font-weight:800; font-size:28px; }
   .relatedActions { margin-top:12px; display:grid; gap:10px; }

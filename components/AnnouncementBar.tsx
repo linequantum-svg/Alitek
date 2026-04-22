@@ -51,9 +51,11 @@ export default function AnnouncementBar() {
           >
             Alitek online
           </span>
-          <span>Безкоштовна доставка від 1500 грн</span>
-          <span style={{ opacity: 0.5 }}>•</span>
           <span>Актуальні ціни</span>
+          <span style={{ opacity: 0.5 }}>•</span>
+          <span>Швидка відправка</span>
+          <span style={{ opacity: 0.5 }}>•</span>
+          <span>Надійний сервіс</span>
         </div>
 
         <div

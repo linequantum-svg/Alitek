@@ -43,6 +43,18 @@ export default function SiteFooter() {
           </div>
 
           <div className="footerColumn">
+            <Link href="/privacy-policy" className="footerLink">
+              Політика конфіденційності
+            </Link>
+            <Link href="/returns-exchange" className="footerLink">
+              Повернення та обмін
+            </Link>
+            <Link href="/public-offer" className="footerLink">
+              Публічна оферта
+            </Link>
+          </div>
+
+          <div className="footerColumn">
             <div className="footerTitle">Контакти</div>
 
             <a href={SITE_CONFIG.phoneHref} className="footerLink">
@@ -69,7 +81,7 @@ export default function SiteFooter() {
           margin: 0 auto;
           padding: 28px 18px 36px;
           display: grid;
-          grid-template-columns: 1.5fr 1fr 1fr;
+          grid-template-columns: 1.4fr 1fr 1fr 1fr;
           gap: 24px;
         }
         .brandRow {

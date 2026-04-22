@@ -39,7 +39,6 @@ export default async function CategoryPage({
                 { label: categoryName },
               ]}
             />
-            <div className="kicker">Каталог Alitek</div>
             <h1>{categoryName}</h1>
             <p>Категорія зі зручними фільтрами, лівою колонкою і щільною сіткою товарів.</p>
           </div>
@@ -92,7 +91,7 @@ export default async function CategoryPage({
           font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
         .container {
-          max-width: 1680px;
+          max-width: 1880px;
           margin: 0 auto;
           padding: 20px 18px 42px;
         }
@@ -108,18 +107,6 @@ export default async function CategoryPage({
           display: grid;
           gap: 10px;
           max-width: 880px;
-        }
-        .kicker {
-          display: inline-flex;
-          min-height: 34px;
-          padding: 0 12px;
-          border-radius: 999px;
-          align-items: center;
-          background: #fff4e8;
-          color: #9a3412;
-          font-size: 12px;
-          font-weight: 800;
-          width: fit-content;
         }
         .titleBlock h1 {
           margin: 0;

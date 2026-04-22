@@ -1,10 +1,6 @@
 import Link from "next/link";
 
-export default function ProductSupportCard({
-  brand,
-}: {
-  brand?: string;
-}) {
+export default function ProductSupportCard() {
   return (
     <section
       style={{
@@ -33,7 +29,6 @@ export default function ProductSupportCard({
         }}
       >
         Можна уточнити сумісність, характеристики, наявність та підбір аналогів.
-        {brand ? ` Також допоможемо по товарах бренду ${brand}.` : ""}
       </div>
 
       <div

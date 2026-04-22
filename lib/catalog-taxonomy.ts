@@ -17,6 +17,48 @@ const ORDERED_CATEGORIES = [
   "Чохли для телефонів",
 ] as const;
 
+const DISPLAY_CATEGORIES = [
+  "Маркери",
+  "Годинники Skmei",
+  "Годинники Olevs",
+  "Смарт-годинники",
+  "Дитячі годинники",
+  "Ремінці",
+  "Навушники TWS",
+  "Накладні навушники",
+  "Чохли для навушників",
+  "Комплекти",
+  "Світильники",
+  "Адаптери",
+  "Павербанки, зарядні пристрої",
+  "Чохли для телефонів",
+] as const;
+
+const CATEGORY_GROUP_DEFINITIONS = [
+  {
+    title: "Маркери",
+    items: ["Маркери"],
+  },
+  {
+    title: "Годинники",
+    items: [
+      "Годинники Skmei",
+      "Годинники Olevs",
+      "Смарт-годинники",
+      "Дитячі годинники",
+      "Ремінці",
+    ],
+  },
+  {
+    title: "Навушники",
+    items: ["Навушники TWS", "Накладні навушники", "Чохли для навушників"],
+  },
+  {
+    title: "Інше",
+    items: ["Комплекти", "Світильники", "Адаптери", "Павербанки, зарядні пристрої", "Чохли для телефонів"],
+  },
+] as const;
+
 const EXACT_CATEGORY_ALIASES = new Map<string, string>(
   ORDERED_CATEGORIES.map((name) => [normalize(name), name])
 );
@@ -125,6 +167,58 @@ export function sortCatalogCategories(categories: string[]) {
       const rankDiff = getCatalogCategoryRank(a) - getCatalogCategoryRank(b);
       return rankDiff !== 0 ? rankDiff : a.localeCompare(b, "uk");
     });
+}
+
+export function getDisplayCatalogCategories(categories: string[], limit?: number) {
+  const uniqueCategories = Array.from(new Set(categories.filter(Boolean)));
+  const byNormalizedName = new Map(uniqueCategories.map((name) => [normalize(name), name]));
+
+  const display = DISPLAY_CATEGORIES.map((name) => byNormalizedName.get(normalize(name))).filter(
+    (value): value is string => Boolean(value),
+  );
+
+  const remaining = uniqueCategories.filter(
+    (name) =>
+      !display.some((displayName) => normalize(displayName) === normalize(name)) &&
+      !["годинники", "навушники"].includes(normalize(name)),
+  );
+
+  const merged = [...display, ...sortCatalogCategories(remaining)];
+  return typeof limit === "number" ? merged.slice(0, Math.max(0, limit)) : merged;
+}
+
+export type CatalogCategoryGroup = {
+  title: string;
+  items: string[];
+};
+
+export function getCatalogCategoryGroups(categories: string[]) {
+  const displayCategories = getDisplayCatalogCategories(categories);
+  const normalizedAvailable = new Map(displayCategories.map((name) => [normalize(name), name]));
+  const used = new Set<string>();
+
+  const groups: CatalogCategoryGroup[] = CATEGORY_GROUP_DEFINITIONS.map((group) => {
+    const items = group.items
+      .map((item) => normalizedAvailable.get(normalize(item)))
+      .filter((value): value is string => Boolean(value));
+
+    for (const item of items) used.add(normalize(item));
+
+    return {
+      title: group.title,
+      items,
+    };
+  }).filter((group) => group.items.length > 0);
+
+  const remaining = displayCategories.filter((item) => !used.has(normalize(item)));
+  if (remaining.length > 0) {
+    groups.push({
+      title: "Ще категорії",
+      items: remaining,
+    });
+  }
+
+  return groups;
 }
 
 export function normalizeCatalogCategory(...values: Array<string | null | undefined>) {

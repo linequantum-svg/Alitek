@@ -73,7 +73,7 @@ export default async function CatalogPage() {
           font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
         .container {
-          max-width: 1680px;
+          max-width: 1880px;
           margin: 0 auto;
           padding: 20px 18px 42px;
         }

@@ -12,6 +12,8 @@ import {
   prefetchProductCache,
   setCatalogCache,
 } from "@/lib/storefront-client-cache";
+import { getCatalogCategoryGroups } from "@/lib/catalog-taxonomy";
+import { slugifyCategory } from "@/lib/storefront-data";
 import { formatPrice } from "@/lib/utils";
 
 type CatalogProduct = {
@@ -181,21 +183,7 @@ function CatalogCard({ product, priority = false }: CardProps) {
         >
           {showHotBadge ? (
             <span aria-label="Хіт продажів" className="hotBadge">
-              <svg
-                aria-hidden="true"
-                className="hotBadgeIcon"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M12 3c.7 2-.2 3.8-1.4 5.1-1.1 1.2-2.3 2.3-2.3 4.2 0 2.4 1.7 4.3 4 4.3 2.5 0 4.4-1.9 4.4-4.4 0-2.9-1.8-4.5-3.4-6.2-.5-.5-1-.9-1.3-3Z"
-                  fill="currentColor"
-                />
-                <path
-                  d="M12.1 10.1c.1.8-.2 1.4-.7 1.9-.5.5-.9 1-1 1.8 0 1.1.8 1.9 1.8 1.9 1.1 0 2-.9 2-2 0-1.3-.7-2.1-1.5-2.9-.2-.2-.4-.4-.6-.7Z"
-                  fill="#ff8a8a"
-                />
-              </svg>
+              <img alt="" aria-hidden="true" className="hotBadgeFlame" src="/flame-badge-user.png" />
             </span>
           ) : null}
           <Image
@@ -203,7 +191,7 @@ function CatalogCard({ product, priority = false }: CardProps) {
             className="productImage"
             height={360}
             priority={priority}
-            sizes="(max-width: 900px) 50vw, (max-width: 1200px) 33vw, 20vw"
+            sizes="(max-width: 900px) 50vw, (max-width: 1200px) 33vw, (max-width: 1600px) 20vw, 16vw"
             src={currentImage}
             style={{
               width: "100%",
@@ -274,7 +262,7 @@ function CatalogCard({ product, priority = false }: CardProps) {
             style={{
               display: "flex",
               alignItems: "baseline",
-              gap: "8px",
+              gap: "0",
               marginTop: "2px",
               marginBottom: 0,
             }}
@@ -291,18 +279,6 @@ function CatalogCard({ product, priority = false }: CardProps) {
             >
               {formatPrice(product.price)}
             </strong>
-            {product.oldPrice > product.price ? (
-              <span
-                className="oldPrice"
-                style={{
-                  fontSize: "13px",
-                  color: "#94a3b8",
-                  textDecoration: "line-through",
-                }}
-              >
-                {formatPrice(product.oldPrice)}
-              </span>
-            ) : null}
           </div>
         </div>
       </Link>
@@ -373,6 +349,10 @@ export default function CatalogClient({
   const [error, setError] = useState("");
   const [loadedPage, setLoadedPage] = useState(current.page);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const navigationGroups = useMemo(
+    () => getCatalogCategoryGroups(data.categories),
+    [data.categories],
+  );
 
   useEffect(() => {
     setDraftQ(current.q);
@@ -578,6 +558,24 @@ export default function CatalogClient({
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
+  const goToCategory = (category: string) => {
+    const nextCategory = String(category || "").trim();
+    if (!nextCategory) return;
+
+    if (fixedCategory) {
+      router.push(`/catalog/${slugifyCategory(nextCategory)}`, { scroll: false });
+      return;
+    }
+
+    updateUrl({
+      q: current.q,
+      page: 1,
+      sort: current.sort,
+      available: current.available,
+      category: nextCategory,
+    });
+  };
+
   const submitFilters = () => {
     updateUrl({
       q: draftQ.trim(),
@@ -663,28 +661,29 @@ export default function CatalogClient({
 
         <div className="panel sideLinks">
           <h2 className="filterTitle">Категорії</h2>
-          {data.categories.slice(0, 10).map((item) => {
-            const active = item === (fixedCategory || current.category);
-            return (
-              <button
-                className={`sideLink ${active ? "active" : ""}`}
-                key={item}
-                onClick={() =>
-                  updateUrl({
-                    q: current.q,
-                    page: 1,
-                    sort: current.sort,
-                    available: current.available,
-                    category: item,
-                  })
-                }
-                type="button"
-              >
-                <span>{item}</span>
-                <span aria-hidden="true">→</span>
-              </button>
-            );
-          })}
+          {navigationGroups.map((group) => (
+            <div className="sideGroup" key={group.title}>
+              {group.title !== group.items[0] ? (
+                <div className="sideGroupTitle">{group.title}</div>
+              ) : null}
+              <div className="sideGroupItems">
+                {group.items.map((item) => {
+                  const active = item === (fixedCategory || current.category);
+                  return (
+                    <button
+                      className={`sideLink ${active ? "active" : ""}`}
+                      key={item}
+                      onClick={() => goToCategory(item)}
+                      type="button"
+                    >
+                      <span>{item}</span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </aside>
 
@@ -765,25 +764,33 @@ export default function CatalogClient({
       <style jsx>{`
         .shell {
           display: grid;
-          grid-template-columns: 260px minmax(0, 1fr);
+          grid-template-columns: minmax(300px, 320px) minmax(0, 1fr);
           gap: 18px;
           align-items: start;
+          min-width: 0;
         }
         .sidebar {
           position: sticky;
           top: 16px;
           display: grid;
           gap: 18px;
+          min-width: 0;
+          width: 100%;
+          z-index: 0;
         }
         .content {
           display: grid;
           gap: 16px;
+          min-width: 0;
         }
         .panel {
           background: #fff;
           border: 1px solid #dbe5f1;
           border-radius: 24px;
           box-shadow: 0 20px 40px rgba(15, 23, 42, 0.04);
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
         }
         .blueBtn {
           background: linear-gradient(135deg, #5aa2ff, #2676e7);
@@ -799,6 +806,13 @@ export default function CatalogClient({
           display: grid;
           gap: 16px;
           padding: 18px;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .sideLinks {
+          gap: 16px;
+          padding: 16px;
         }
         .filterTitle {
           margin: 0;
@@ -806,8 +820,28 @@ export default function CatalogClient({
           font-weight: 800;
           color: #0f172a;
         }
+        .sideLinks .filterTitle {
+          padding: 8px 8px 14px;
+        }
+        .sideGroup {
+          display: grid;
+          gap: 4px;
+        }
+        .sideGroupTitle {
+          padding: 2px 8px 8px;
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .sideGroupItems {
+          display: grid;
+          gap: 2px;
+        }
         .field {
           width: 100%;
+          max-width: 100%;
           border: 1px solid #dbe5f1;
           border-radius: 20px;
           background: #fff;
@@ -815,6 +849,7 @@ export default function CatalogClient({
           font-size: 16px;
           color: #0f172a;
           outline: none;
+          box-sizing: border-box;
         }
         select.field,
         .compact {
@@ -837,8 +872,9 @@ export default function CatalogClient({
         }
         .buttonRow {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           gap: 12px;
+          min-width: 0;
         }
         .primaryButton,
         .ghostButton,
@@ -854,6 +890,9 @@ export default function CatalogClient({
           font-weight: 700;
           cursor: pointer;
           transition: 0.2s ease;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
         }
         .primaryButton {
           background: #dd843e;
@@ -869,15 +908,29 @@ export default function CatalogClient({
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 18px 20px;
+          min-height: 64px;
+          padding: 0 16px;
           text-align: left;
-          font-size: 16px;
+          font-size: 17px;
           line-height: 1.25;
+          border-color: transparent;
+          box-shadow: none;
+        }
+        .sideLink:hover {
+          background: #f3f6fa;
+          color: #d97706;
+          transform: translateX(4px);
         }
         .sideLink.active {
-          border-color: #9ec5ff;
-          background: #eef5ff;
-          color: #1d4ed8;
+          border-color: transparent;
+          background: #edf4fb;
+          color: #0f172a;
+        }
+        .sideLink span:last-child {
+          color: #94a3b8;
+          font-size: 30px;
+          line-height: 1;
+          font-weight: 400;
         }
         .toolbar {
           display: flex;
@@ -885,6 +938,7 @@ export default function CatalogClient({
           justify-content: space-between;
           gap: 16px;
           padding: 16px 20px;
+          min-width: 0;
         }
         .toolbarTitle {
           margin: 0;
@@ -901,9 +955,11 @@ export default function CatalogClient({
           display: flex;
           align-items: center;
           gap: 12px;
+          min-width: 0;
         }
         .compact {
           min-width: 240px;
+          max-width: 100%;
           border: 1px solid #dbe5f1;
           border-radius: 14px;
           background: #fff;
@@ -911,6 +967,7 @@ export default function CatalogClient({
           font-size: 16px;
           color: #0f172a;
           box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+          box-sizing: border-box;
         }
         select.field,
         .compact {
@@ -940,10 +997,11 @@ export default function CatalogClient({
         }
         .grid {
           display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
-          column-gap: 16px;
-          row-gap: 32px;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          column-gap: 14px;
+          row-gap: 28px;
           align-items: start;
+          min-width: 0;
         }
         :global(.card) {
           display: flex;
@@ -996,23 +1054,25 @@ export default function CatalogClient({
         }
         :global(.hotBadge) {
           position: absolute;
-          top: 10px;
-          right: 10px;
+          top: 20px;
+          right: 8px;
           z-index: 2;
-          width: 32px;
-          height: 32px;
-          border-radius: 999px;
-          background: #ff4d4f;
-          color: #fff;
+          width: 34px;
+          height: 34px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 8px 16px rgba(255, 77, 79, 0.22);
+          pointer-events: none;
+          background: transparent;
+          overflow: visible;
         }
-        :global(.hotBadgeIcon) {
-          width: 18px;
-          height: 18px;
+        :global(.hotBadgeFlame) {
           display: block;
+          width: 28px;
+          height: 28px;
+          flex-shrink: 0;
+          background: transparent;
+          filter: drop-shadow(0 3px 6px rgba(216, 58, 58, 0.18));
         }
         :global(.imageWrap img) {
           width: 100%;
@@ -1086,7 +1146,7 @@ export default function CatalogClient({
         :global(.priceRow) {
           display: flex;
           align-items: baseline;
-          gap: 8px;
+          gap: 0;
           margin-top: 0;
           padding-top: 0;
           margin-bottom: 0;
@@ -1097,11 +1157,6 @@ export default function CatalogClient({
           color: #0f172a;
           text-decoration: none !important;
           font-weight: 800;
-        }
-        :global(.oldPrice) {
-          font-size: 13px;
-          color: #94a3b8;
-          text-decoration: line-through;
         }
         :global(.actions) {
           display: grid;
@@ -1150,6 +1205,11 @@ export default function CatalogClient({
           0% { background-position: 100% 0; }
           100% { background-position: -100% 0; }
         }
+        @media (max-width: 1600px) {
+          .grid {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+          }
+        }
         @media (max-width: 1400px) {
           .grid {
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1189,6 +1249,11 @@ export default function CatalogClient({
           }
           .buttonRow {
             grid-template-columns: 1fr;
+          }
+          .sideLink {
+            min-height: 58px;
+            padding: 0 14px;
+            font-size: 16px;
           }
         }
       `}</style>
