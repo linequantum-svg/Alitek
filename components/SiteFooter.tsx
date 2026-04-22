@@ -122,11 +122,25 @@ export default function SiteFooter() {
           color: #0f172a;
         }
         .footerLink {
-          color: #0f172a;
-          text-decoration: none;
-          font-weight: 600;
+          color: #111827;
+          text-decoration: none !important;
+          font-weight: 700;
           min-width: 0;
           word-break: break-word;
+          transition: color 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+        }
+        .footerInfoGrid :global(a),
+        .footerInfoGrid :global(a:visited),
+        .footerInfoGrid :global(a:hover),
+        .footerInfoGrid :global(a:active),
+        .footerInfoGrid :global(a:focus) {
+          color: #111827 !important;
+          text-decoration: none !important;
+        }
+        .footerInfoGrid :global(a:hover),
+        .footerInfoGrid :global(a:focus-visible) {
+          color: #2563eb !important;
+          transform: translateX(2px);
         }
         .footerWideLink {
           grid-column: 1 / 2;
