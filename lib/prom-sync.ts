@@ -83,7 +83,7 @@ function getAttributes(param: RawParam): Array<{ name: string; value: string }> 
 }
 
 async function fetchFeed(): Promise<ParsedFeed> {
-  const feedUrl = process.env.PROM_XML_FEED_URL || "";
+  const feedUrl = process.env.PROM_XML_FEED_URL || process.env.PROM_FEED_URL || "";
   if (!feedUrl) throw new Error("PROM_XML_FEED_URL is not configured");
 
   const response = await fetch(feedUrl, {

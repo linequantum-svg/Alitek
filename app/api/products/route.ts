@@ -8,10 +8,11 @@ export async function GET(request: Request) {
     const query = searchParams.get("q")?.trim() || "";
     const category = searchParams.get("category")?.trim() || "";
     const brand = searchParams.get("brand")?.trim() || "";
-    const available = searchParams.get("available") === "true";
+    const availableParam = searchParams.get("available");
+    const available = availableParam === "true" || availableParam === "1";
     const sort = searchParams.get("sort")?.trim() || "popular";
     const page = Math.max(Number(searchParams.get("page") || 1), 1);
-    const limit = Math.min(Math.max(Number(searchParams.get("limit") || 24), 1), 100);
+    const limit = Math.min(Math.max(Number(searchParams.get("limit") || 20), 1), 100);
 
     const data = await getCatalogPageData({
       query,
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
       page,
       limit,
       totalPages: data.totalPages,
-      categories: data.categories.map((item) => item.name),
+      categories: data.categories,
       updatedAt: new Date().toISOString(),
       products: data.products.map((product) => ({
         id: product.id,

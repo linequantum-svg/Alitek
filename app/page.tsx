@@ -64,7 +64,7 @@ function getCategoryIcon(title: string) {
 
 export default async function Home() {
   const { categories, popularProducts, showcaseProducts, deal } = await getHomepageData();
-  const homepageCategoryGroups = getCatalogCategoryGroups(categories.map((item) => item.name));
+  const homepageCategoryGroups = getCatalogCategoryGroups(categories);
   const mixedPopularProducts = pickMixedProducts(
     [...popularProducts, ...showcaseProducts.filter((item) => !popularProducts.some((popular) => popular.id === item.id))],
     10
@@ -123,7 +123,7 @@ export default async function Home() {
               <div className="sidebarKicker">Категорії</div>
 
               {homepageCategoryGroups.map((group) => {
-                const isStandaloneGroup = group.title === "Маркери";
+                const isStandaloneGroup = group.items.length === 1 && group.items[0] === group.title;
                 const hasVisibleChildren = !isStandaloneGroup && group.items.length > 0;
                 const titleToShow = isStandaloneGroup ? group.items[0] : group.title;
                 const parentHref = isStandaloneGroup
@@ -385,9 +385,9 @@ export default async function Home() {
           box-shadow: 0 16px 34px rgba(15, 23, 42, 0.05);
         }
         .categorySidebar {
-          padding: 16px 12px 12px;
+          padding: 18px 14px 14px;
           display: grid;
-          gap: 6px;
+          gap: 10px;
           background:
             linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 251, 253, 0.98)),
             radial-gradient(circle at top right, rgba(148, 163, 184, 0.08), transparent 34%);
@@ -405,21 +405,21 @@ export default async function Home() {
         }
         .categoryGroup {
           display: grid;
-          gap: 4px;
+          gap: 8px;
         }
         .categoryParentCard {
-          min-height: 46px;
-          padding: 0 12px;
-          border-radius: 14px;
+          min-height: 56px;
+          padding: 0 14px;
+          border-radius: 18px;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 12px;
           text-decoration: none;
           color: #111827;
-          background: linear-gradient(180deg, #ffffff, #fcfdff);
-          border: 1px solid #e3eaf2;
-          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.03);
-          font-size: 16px;
+          background: linear-gradient(180deg, #ffffff, #fbfdff);
+          border: 1px solid #dbe7f4;
+          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.035);
+          font-size: 17px;
           font-weight: 800;
           letter-spacing: -0.03em;
           transition:
@@ -431,11 +431,11 @@ export default async function Home() {
         }
         .categoryParentCard:hover,
         .categoryParentCard:focus-visible {
-          border-color: #bfdbfe;
-          background: linear-gradient(180deg, #ffffff, #f3f8ff);
-          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.08);
-          color: #2563eb;
-          transform: translateX(4px);
+          border-color: #cdddf0;
+          background: linear-gradient(180deg, #ffffff, #f7fbff);
+          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.06);
+          color: #0f172a;
+          transform: translateX(3px);
         }
         .categoryParentCard:hover .categoryParentIcon,
         .categoryParentCard:focus-visible .categoryParentIcon {
@@ -444,40 +444,40 @@ export default async function Home() {
           box-shadow: 0 6px 14px rgba(37, 99, 235, 0.1);
         }
         .categoryParentIcon {
-          width: 28px;
-          height: 28px;
-          border-radius: 10px;
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
           background: linear-gradient(180deg, #ffffff, #f4f8fc);
           border: 1px solid #e3eaf2;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 14px;
+          font-size: 16px;
           flex-shrink: 0;
         }
         .subcategoryRail {
-          margin-left: 12px;
-          padding-left: 8px;
-          border-left: 2px solid #e2eaf4;
+          margin-left: 14px;
+          padding-left: 12px;
+          border-left: 3px solid #e5eef9;
           display: grid;
-          gap: 4px;
+          gap: 8px;
         }
         .subcategoryItem {
-          min-height: 34px;
-          padding: 4px 8px;
-          border-radius: 12px;
+          min-height: 50px;
+          padding: 6px 12px;
+          border-radius: 18px;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           text-decoration: none;
           color: #111827;
-          background: linear-gradient(180deg, #ffffff, #fbfcfe);
-          border: 1px solid #e6edf4;
-          box-shadow: 0 5px 12px rgba(15, 23, 42, 0.025);
-          font-size: 14px;
+          background: linear-gradient(180deg, #ffffff, #fbfdff);
+          border: 1px solid #dfe9f4;
+          box-shadow: 0 6px 14px rgba(15, 23, 42, 0.025);
+          font-size: 15px;
           font-weight: 800;
           letter-spacing: -0.02em;
-          line-height: 1.15;
+          line-height: 1.2;
           transition:
             border-color 0.2s ease,
             background 0.2s ease,
@@ -487,11 +487,11 @@ export default async function Home() {
         }
         .subcategoryItem:hover,
         .subcategoryItem:focus-visible {
-          border-color: #bfdbfe;
-          background: linear-gradient(180deg, #ffffff, #f2f7ff);
-          box-shadow: 0 8px 16px rgba(37, 99, 235, 0.07);
-          color: #2563eb;
-          transform: translateX(3px);
+          border-color: #cdddf0;
+          background: linear-gradient(180deg, #ffffff, #f7fbff);
+          box-shadow: 0 8px 18px rgba(37, 99, 235, 0.05);
+          color: #0f172a;
+          transform: translateX(2px);
         }
         .subcategoryItem:hover .subcategoryDot,
         .subcategoryItem:focus-visible .subcategoryDot {
@@ -502,20 +502,20 @@ export default async function Home() {
           background: #2563eb;
         }
         .subcategoryDot {
-          width: 14px;
-          height: 14px;
+          width: 20px;
+          height: 20px;
           border-radius: 999px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: #eff5fb;
+          background: #eef5ff;
           flex-shrink: 0;
           position: relative;
         }
         .subcategoryDot::after {
           content: "";
-          width: 3px;
-          height: 3px;
+          width: 5px;
+          height: 5px;
           border-radius: 999px;
           background: #60a5fa;
           display: block;
@@ -769,34 +769,34 @@ export default async function Home() {
             grid-template-columns: 1fr;
           }
           .categorySidebar {
-            padding: 14px 10px 10px;
+            padding: 16px 12px 12px;
           }
           .categoryParentCard {
-            min-height: 42px;
-            padding: 0 10px;
-            border-radius: 12px;
-            font-size: 15px;
+            min-height: 52px;
+            padding: 0 12px;
+            border-radius: 16px;
+            font-size: 16px;
           }
           .categoryParentIcon {
-            width: 24px;
-            height: 24px;
-            border-radius: 9px;
-            font-size: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 11px;
+            font-size: 15px;
           }
           .subcategoryRail {
-            margin-left: 10px;
-            padding-left: 8px;
-            gap: 4px;
+            margin-left: 12px;
+            padding-left: 10px;
+            gap: 6px;
           }
           .subcategoryItem {
-            min-height: 32px;
-            padding: 4px 7px;
-            border-radius: 10px;
-            font-size: 13px;
+            min-height: 44px;
+            padding: 6px 10px;
+            border-radius: 15px;
+            font-size: 14px;
           }
           .subcategoryDot {
-            width: 13px;
-            height: 13px;
+            width: 18px;
+            height: 18px;
           }
         }
       `}</style>

@@ -7,6 +7,7 @@ import FavoritesBadge from "@/components/FavoritesBadge";
 import { getCategoryPageData, getSitemapData, slugifyCategory } from "@/lib/storefront-data";
 
 export const revalidate = 300;
+const CATALOG_PAGE_SIZE = 20;
 
 export async function generateStaticParams() {
   const { categories } = await getSitemapData();
@@ -22,7 +23,7 @@ export default async function CategoryPage({
   const data = await getCategoryPageData({
     slug,
     page: 1,
-    pageSize: 20,
+    pageSize: CATALOG_PAGE_SIZE,
   });
 
   const categoryName = data.categoryName;
@@ -56,7 +57,7 @@ export default async function CategoryPage({
               ok: true,
               total: data.total,
               totalPages: data.totalPages,
-              categories: data.categories.map((item) => item.name),
+              categories: data.categories,
               products: data.products.map((product) => ({
                 id: product.id,
                 slug: product.slug,

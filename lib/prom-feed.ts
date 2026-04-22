@@ -3,6 +3,7 @@
 export type PromCategory = {
   id: string;
   name: string;
+  parentExternalId: string | null;
 };
 
 export type PromProduct = {
@@ -97,9 +98,14 @@ function parseCategories(xml: string): PromCategory[] {
   return categoryBlocks
     .map((block) => {
       const idMatch = block.match(/id="([^"]+)"/i);
+      const parentMatch = block.match(/parentId="([^"]+)"/i);
       const id = idMatch ? idMatch[1].trim() : "";
       const name = decodeXml(block.replace(/<category\b[^>]*>/i, "").replace(/<\/category>/i, ""));
-      return { id, name };
+      return {
+        id,
+        name,
+        parentExternalId: parentMatch ? parentMatch[1].trim() : null,
+      };
     })
     .filter((item) => item.id && item.name);
 }

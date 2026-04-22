@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AddToCartButton from "@/components/AddToCartButton";
 import FavoriteButton from "@/components/FavoriteButton";
@@ -12,7 +12,7 @@ import {
   prefetchProductCache,
   setCatalogCache,
 } from "@/lib/storefront-client-cache";
-import { getCatalogCategoryGroups } from "@/lib/catalog-taxonomy";
+import { getCatalogCategoryGroups, type CatalogCategoryRecord } from "@/lib/catalog-taxonomy";
 import { slugifyCategory } from "@/lib/storefront-data";
 import { formatPrice } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ type ApiPayload = {
   ok: boolean;
   total: number;
   totalPages: number;
-  categories: string[];
+  categories: CatalogCategoryRecord[];
   products: CatalogProduct[];
 };
 
@@ -49,6 +49,9 @@ type CardProps = {
   priority?: boolean;
 };
 
+const CATALOG_PAGE_SIZE = 20;
+const CLIENT_FETCH_TIMEOUT_MS = 8000;
+
 const SORT_OPTIONS = [
   { value: "popular", label: "Популярні" },
   { value: "price_asc", label: "Спочатку дешевші" },
@@ -56,6 +59,33 @@ const SORT_OPTIONS = [
   { value: "name_asc", label: "Назва: А-Я" },
   { value: "name_desc", label: "Назва: Я-А" },
 ];
+
+const CATALOG_QUERY_VERSION = "v2";
+
+function getCategoryIcon(title: string) {
+  switch (title) {
+    case "Маркери":
+      return "🖊️";
+    case "Годинники":
+      return "⌚";
+    case "Навушники":
+      return "🎧";
+    case "Комплекти":
+      return "🎁";
+    case "Світильники":
+      return "💡";
+    case "Адаптери":
+      return "🔌";
+    case "Павербанки, зарядні пристрої":
+      return "🔋";
+    case "Чохли для телефонів":
+      return "📱";
+    case "Інше":
+      return "📦";
+    default:
+      return "•";
+  }
+}
 
 function buildQueryString(params: {
   q?: string;
@@ -71,8 +101,35 @@ function buildQueryString(params: {
   if (params.sort && params.sort !== "popular") search.set("sort", params.sort);
   if (params.available) search.set("available", "1");
   if (params.category) search.set("category", params.category);
+  search.set("limit", String(CATALOG_PAGE_SIZE));
 
   return search.toString();
+}
+
+async function fetchCatalogPayload(qs: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CLIENT_FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`/api/products?${qs}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    const payload: ApiPayload = await response.json();
+
+    if (!response.ok || !payload.ok) {
+      throw new Error("Не вдалося завантажити товари.");
+    }
+
+    return payload;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Підвантаження товарів триває занадто довго. Спробуй ще раз.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function CatalogSkeleton() {
@@ -345,10 +402,20 @@ export default function CatalogClient({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [loadMoreError, setLoadMoreError] = useState("");
   const [loadedPage, setLoadedPage] = useState(current.page);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreLockRef = useRef(false);
+  const loadedPageRef = useRef(current.page);
+  const totalPagesRef = useRef(initialData.totalPages);
+  const loadingRef = useRef(false);
+  const loadingMoreStateRef = useRef(false);
   const navigationGroups = useMemo(
     () => getCatalogCategoryGroups(data.categories),
+    [data.categories],
+  );
+  const categoryOptions = useMemo(
+    () => Array.from(new Set(data.categories.map((item) => item.name))),
     [data.categories],
   );
 
@@ -359,9 +426,27 @@ export default function CatalogClient({
     setDraftCategory(current.category);
   }, [current.available, current.category, current.q, current.sort]);
 
+  useEffect(() => {
+    loadedPageRef.current = loadedPage;
+  }, [loadedPage]);
+
+  useEffect(() => {
+    totalPagesRef.current = data.totalPages;
+  }, [data.totalPages]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    loadingMoreStateRef.current = loadingMore;
+  }, [loadingMore]);
+
   const requestKey = useMemo(
     () =>
       JSON.stringify({
+        version: CATALOG_QUERY_VERSION,
+        limit: CATALOG_PAGE_SIZE,
         category: current.category,
         page: current.page,
         q: current.q,
@@ -376,6 +461,8 @@ export default function CatalogClient({
 
     async function load() {
       const initialKey = JSON.stringify({
+        version: CATALOG_QUERY_VERSION,
+        limit: CATALOG_PAGE_SIZE,
         category: fixedCategory || "",
         page: 1,
         q: "",
@@ -387,6 +474,8 @@ export default function CatalogClient({
         setData(initialData);
         setProducts(initialData.products);
         setLoadedPage(current.page);
+        loadedPageRef.current = current.page;
+        totalPagesRef.current = initialData.totalPages;
         setCatalogCache(requestKey, initialData);
         return;
       }
@@ -396,11 +485,15 @@ export default function CatalogClient({
         setData(cached);
         setProducts(cached.products);
         setLoadedPage(current.page);
+        loadedPageRef.current = current.page;
+        totalPagesRef.current = cached.totalPages;
         return;
       }
 
       setLoading(true);
+      loadingRef.current = true;
       setError("");
+      setLoadMoreError("");
 
       try {
         const qs = buildQueryString({
@@ -410,17 +503,14 @@ export default function CatalogClient({
           available: current.available,
           category: current.category,
         });
-        const response = await fetch(`/api/products?${qs}`, { cache: "no-store" });
-        const payload: ApiPayload = await response.json();
-
-        if (!response.ok || !payload.ok) {
-          throw new Error("Не вдалося завантажити товари.");
-        }
+        const payload = await fetchCatalogPayload(qs);
 
         if (!cancelled) {
           setData(payload);
           setProducts(payload.products);
           setLoadedPage(current.page);
+          loadedPageRef.current = current.page;
+          totalPagesRef.current = payload.totalPages;
           setCatalogCache(requestKey, payload);
         }
       } catch (fetchError) {
@@ -430,7 +520,10 @@ export default function CatalogClient({
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          loadingRef.current = false;
+        }
       }
     }
 
@@ -441,6 +534,78 @@ export default function CatalogClient({
     };
   }, [current.available, current.category, current.page, current.q, current.sort, fixedCategory, initialData, requestKey]);
 
+  const loadNextPage = useCallback(async () => {
+    if (loadMoreLockRef.current) return;
+    if (loadingRef.current || loadingMoreStateRef.current) return;
+    if (loadedPageRef.current >= totalPagesRef.current) return;
+
+    loadMoreLockRef.current = true;
+    const nextPage = loadedPageRef.current + 1;
+    const nextKey = JSON.stringify({
+      version: CATALOG_QUERY_VERSION,
+      limit: CATALOG_PAGE_SIZE,
+      category: current.category,
+      page: nextPage,
+      q: current.q,
+      sort: current.sort,
+      available: current.available,
+    });
+
+    const applyPayload = (payload: ApiPayload) => {
+      setData(payload);
+      setProducts((prev) => {
+        const seen = new Set(prev.map((item) => item.id));
+        const merged = [...prev];
+        for (const item of payload.products) {
+          if (!seen.has(item.id)) {
+            merged.push(item);
+            seen.add(item.id);
+          }
+        }
+        return merged;
+      });
+      const resolvedPage =
+        payload.products.length > 0 ? nextPage : Math.max(nextPage, payload.totalPages);
+      setLoadedPage(resolvedPage);
+      loadedPageRef.current = resolvedPage;
+      totalPagesRef.current = payload.totalPages;
+    };
+
+    const cached = getCatalogCache<ApiPayload>(nextKey);
+    if (cached) {
+      applyPayload(cached);
+      setLoadMoreError("");
+      loadMoreLockRef.current = false;
+      return;
+    }
+
+    setLoadingMore(true);
+    loadingMoreStateRef.current = true;
+    setError("");
+    setLoadMoreError("");
+    try {
+      const qs = buildQueryString({
+        q: current.q,
+        page: nextPage,
+        sort: current.sort,
+        available: current.available,
+        category: current.category,
+      });
+      const payload = await fetchCatalogPayload(qs);
+      setCatalogCache(nextKey, payload);
+      applyPayload(payload);
+    } catch (fetchError) {
+      const message =
+        fetchError instanceof Error ? fetchError.message : "Не вдалося підвантажити товари.";
+      setError(message);
+      setLoadMoreError(message);
+    } finally {
+      setLoadingMore(false);
+      loadingMoreStateRef.current = false;
+      loadMoreLockRef.current = false;
+    }
+  }, [current.available, current.category, current.q, current.sort]);
+
   useEffect(() => {
     if (!loadMoreRef.current) return;
     if (loading || loadingMore) return;
@@ -450,73 +615,10 @@ export default function CatalogClient({
     let cancelled = false;
 
     const observer = new IntersectionObserver(
-      async (entries) => {
+      (entries) => {
         const entry = entries[0];
         if (!entry?.isIntersecting || cancelled) return;
-
-        observer.disconnect();
-        const nextPage = loadedPage + 1;
-        const nextKey = JSON.stringify({
-          category: current.category,
-          page: nextPage,
-          q: current.q,
-          sort: current.sort,
-          available: current.available,
-        });
-
-        const applyPayload = (payload: ApiPayload) => {
-          setData(payload);
-          setProducts((prev) => {
-            const seen = new Set(prev.map((item) => item.id));
-            const merged = [...prev];
-            for (const item of payload.products) {
-              if (!seen.has(item.id)) {
-                merged.push(item);
-                seen.add(item.id);
-              }
-            }
-            return merged;
-          });
-          setLoadedPage(nextPage);
-        };
-
-        const cached = getCatalogCache<ApiPayload>(nextKey);
-        if (cached) {
-          applyPayload(cached);
-          return;
-        }
-
-        setLoadingMore(true);
-        try {
-          const qs = buildQueryString({
-            q: current.q,
-            page: nextPage,
-            sort: current.sort,
-            available: current.available,
-            category: current.category,
-          });
-          const response = await fetch(`/api/products?${qs}`, { cache: "no-store" });
-          const payload: ApiPayload = await response.json();
-
-          if (!response.ok || !payload.ok) {
-            throw new Error("Не вдалося підвантажити товари.");
-          }
-
-          if (!cancelled) {
-            setCatalogCache(nextKey, payload);
-            applyPayload(payload);
-          }
-        } catch (fetchError) {
-          if (!cancelled) {
-            setError(
-              fetchError instanceof Error
-                ? fetchError.message
-                : "Не вдалося підвантажити товари.",
-            );
-          }
-        } finally {
-          if (!cancelled) setLoadingMore(false);
-        }
+        void loadNextPage();
       },
       { rootMargin: "280px 0px" },
     );
@@ -533,9 +635,7 @@ export default function CatalogClient({
     current.q,
     current.sort,
     data.totalPages,
-    loadedPage,
-    loading,
-    loadingMore,
+    loadNextPage,
   ]);
 
   const updateUrl = (next: {
@@ -623,7 +723,7 @@ export default function CatalogClient({
             value={draftCategory}
           >
             <option value="">Усі категорії</option>
-            {data.categories.map((item) => (
+            {categoryOptions.map((item) => (
               <option key={item} value={item}>
                 {item}
               </option>
@@ -658,28 +758,48 @@ export default function CatalogClient({
         </div>
 
         <div className="panel sideLinks">
-          <h2 className="filterTitle">Категорії</h2>
+          <div className="sidebarKicker">Категорії</div>
           {navigationGroups.map((group) => (
             <div className="sideGroup" key={group.title}>
-              {group.title !== group.items[0] ? (
-                <div className="sideGroupTitle">{group.title}</div>
-              ) : null}
-              <div className="sideGroupItems">
-                {group.items.map((item) => {
-                  const active = item === (fixedCategory || current.category);
-                  return (
+              {(() => {
+                const isStandaloneGroup = group.items.length === 1 && group.items[0] === group.title;
+                const hasVisibleChildren = !isStandaloneGroup && group.items.length > 0;
+                const titleToShow = isStandaloneGroup ? group.items[0] : group.title;
+                const parentActive = titleToShow === (fixedCategory || current.category);
+
+                return (
+                  <>
                     <button
-                      className={`sideLink ${active ? "active" : ""}`}
-                      key={item}
-                      onClick={() => goToCategory(item)}
+                      className={`categoryParentCard sideCategoryButton ${parentActive ? "active" : ""}`}
+                      onClick={() => goToCategory(titleToShow)}
                       type="button"
                     >
-                      <span>{item}</span>
-                      <span aria-hidden="true">→</span>
+                      <span className="categoryParentIcon">{getCategoryIcon(group.title)}</span>
+                      <span>{titleToShow}</span>
                     </button>
-                  );
-                })}
-              </div>
+
+                    {hasVisibleChildren ? (
+                      <div className="subcategoryRail">
+                        {group.items.map((item) => {
+                          const active = item === (fixedCategory || current.category);
+
+                          return (
+                            <button
+                              className={`subcategoryItem sideSubcategoryButton ${active ? "active" : ""}`}
+                              key={item}
+                              onClick={() => goToCategory(item)}
+                              type="button"
+                            >
+                              <span className="subcategoryDot" />
+                              <span>{item}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </>
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -754,7 +874,21 @@ export default function CatalogClient({
 
         {products.length > 0 && loadedPage < data.totalPages ? (
           <div className="loadMoreState panel" ref={loadMoreRef}>
-            {loadingMore ? "Завантажуємо ще товари..." : "Прокрути нижче, щоб побачити більше товарів"}
+            <div className="loadMoreText">
+              {loadingMore
+                ? "Завантажуємо ще товари..."
+                : loadMoreError
+                  ? loadMoreError
+                  : "Прокрути нижче або натисни кнопку, щоб побачити більше товарів"}
+            </div>
+            <button
+              className="loadMoreButton"
+              disabled={loadingMore}
+              onClick={() => void loadNextPage()}
+              type="button"
+            >
+              {loadingMore ? "Завантажуємо..." : "Показати ще"}
+            </button>
           </div>
         ) : null}
       </div>
@@ -771,9 +905,12 @@ export default function CatalogClient({
           position: sticky;
           top: 16px;
           display: grid;
+          grid-template-rows: auto auto minmax(0, 1fr);
           gap: 18px;
           min-width: 0;
           width: 100%;
+          max-height: calc(100vh - 16px);
+          overflow: hidden;
           z-index: 0;
         }
         .content {
@@ -809,8 +946,30 @@ export default function CatalogClient({
           box-sizing: border-box;
         }
         .sideLinks {
-          gap: 16px;
-          padding: 16px;
+          gap: 10px;
+          padding: 18px 14px 14px;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(249, 251, 253, 0.98)),
+            radial-gradient(circle at top right, rgba(148, 163, 184, 0.08), transparent 34%);
+          border: 1px solid #e6edf5;
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          scrollbar-width: thin;
+          scrollbar-color: #c8d8ec transparent;
+        }
+        .sideLinks::-webkit-scrollbar {
+          width: 8px;
+        }
+        .sideLinks::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .sideLinks::-webkit-scrollbar-thumb {
+          background: #d7e3f1;
+          border-radius: 999px;
+        }
+        .sideLinks::-webkit-scrollbar-thumb:hover {
+          background: #c3d4e8;
         }
         .filterTitle {
           margin: 0;
@@ -818,24 +977,17 @@ export default function CatalogClient({
           font-weight: 800;
           color: #0f172a;
         }
-        .sideLinks .filterTitle {
-          padding: 8px 8px 14px;
+        .sidebarKicker {
+          color: #3b82f6;
+          font-size: 14px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          padding: 0 6px;
         }
         .sideGroup {
           display: grid;
-          gap: 4px;
-        }
-        .sideGroupTitle {
-          padding: 2px 8px 8px;
-          color: #64748b;
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-        .sideGroupItems {
-          display: grid;
-          gap: 2px;
+          gap: 8px;
         }
         .field {
           width: 100%;
@@ -878,8 +1030,7 @@ export default function CatalogClient({
         .ghostButton,
         .pageButton,
         .pageNumber,
-        .availabilityToggle,
-        .sideLink {
+        .availabilityToggle {
           border: 1px solid #dbe5f1;
           border-radius: 20px;
           background: #fff;
@@ -901,40 +1052,138 @@ export default function CatalogClient({
         .ghostButton {
           padding: 18px 20px;
         }
-        .sideLink {
+        .categoryParentCard,
+        .subcategoryItem {
+          width: 100%;
+          text-align: left;
+          cursor: pointer;
+          box-sizing: border-box;
+          font-family: inherit;
+        }
+        .sideCategoryButton {
+          min-height: 56px;
+          padding: 0 14px;
+          border-radius: 18px;
           display: flex;
           align-items: center;
-          justify-content: space-between;
           gap: 12px;
-          min-height: 64px;
-          padding: 0 16px;
-          text-align: left;
           font-size: 17px;
-          line-height: 1.25;
-          border-color: transparent;
-          box-shadow: none;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          color: #111827;
+          background: linear-gradient(180deg, #ffffff, #fbfdff);
+          border: 1px solid #dbe7f4;
+          box-shadow: 0 10px 22px rgba(15, 23, 42, 0.035);
+          transition:
+            border-color 0.2s ease,
+            transform 0.2s ease,
+            box-shadow 0.2s ease,
+            background 0.2s ease,
+            color 0.2s ease;
         }
-        .sideLink:hover,
-        .sideLink:focus-visible {
+        .sideCategoryButton:hover,
+        .sideCategoryButton:focus-visible {
+          border-color: #cdddf0;
+          background: linear-gradient(180deg, #ffffff, #f7fbff);
+          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.06);
+          color: #0f172a;
+          transform: translateX(3px);
+        }
+        .sideCategoryButton.active {
+          border-color: #c7daf3;
           background: linear-gradient(180deg, #ffffff, #f2f7ff);
-          color: #2563eb;
-          box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
-          transform: translateX(4px);
-        }
-        .sideLink.active {
-          border-color: transparent;
-          background: #edf4fb;
+          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.08);
           color: #0f172a;
         }
-        .sideLink span:last-child {
-          color: #94a3b8;
-          font-size: 30px;
-          line-height: 1;
-          font-weight: 400;
+        .sideCategoryButton:hover .categoryParentIcon,
+        .sideCategoryButton:focus-visible .categoryParentIcon,
+        .sideCategoryButton.active .categoryParentIcon {
+          border-color: #bfdbfe;
+          background: linear-gradient(180deg, #ffffff, #eff6ff);
+          box-shadow: 0 6px 14px rgba(37, 99, 235, 0.1);
         }
-        .sideLink:hover span:last-child,
-        .sideLink:focus-visible span:last-child {
-          color: #2563eb;
+        .categoryParentIcon {
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          background: linear-gradient(180deg, #ffffff, #f4f8fc);
+          border: 1px solid #e3eaf2;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+        .subcategoryRail {
+          margin-left: 14px;
+          padding-left: 12px;
+          border-left: 3px solid #e5eef9;
+          display: grid;
+          gap: 8px;
+        }
+        .sideSubcategoryButton {
+          min-height: 50px;
+          padding: 6px 12px;
+          border-radius: 18px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: #111827;
+          background: linear-gradient(180deg, #ffffff, #fbfdff);
+          border: 1px solid #dfe9f4;
+          box-shadow: 0 6px 14px rgba(15, 23, 42, 0.025);
+          font-size: 15px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          line-height: 1.2;
+          transition:
+            border-color 0.2s ease,
+            background 0.2s ease,
+            box-shadow 0.2s ease,
+            color 0.2s ease,
+            transform 0.2s ease;
+        }
+        .sideSubcategoryButton:hover,
+        .sideSubcategoryButton:focus-visible {
+          border-color: #cdddf0;
+          background: linear-gradient(180deg, #ffffff, #f7fbff);
+          box-shadow: 0 8px 18px rgba(37, 99, 235, 0.05);
+          color: #0f172a;
+          transform: translateX(2px);
+        }
+        .sideSubcategoryButton.active {
+          border-color: #c7daf3;
+          background: linear-gradient(180deg, #ffffff, #f2f7ff);
+          box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
+        }
+        .sideSubcategoryButton:hover .subcategoryDot,
+        .sideSubcategoryButton:focus-visible .subcategoryDot,
+        .sideSubcategoryButton.active .subcategoryDot {
+          background: #dbeafe;
+        }
+        .sideSubcategoryButton:hover .subcategoryDot::after,
+        .sideSubcategoryButton:focus-visible .subcategoryDot::after,
+        .sideSubcategoryButton.active .subcategoryDot::after {
+          background: #2563eb;
+        }
+        .subcategoryDot {
+          width: 20px;
+          height: 20px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: #eef5ff;
+          flex-shrink: 0;
+          position: relative;
+        }
+        .subcategoryDot::after {
+          content: "";
+          width: 5px;
+          height: 5px;
+          border-radius: 999px;
+          background: #60a5fa;
+          display: block;
         }
         .toolbar {
           display: flex;
@@ -1210,9 +1459,32 @@ export default function CatalogClient({
         .loadMoreState {
           padding: 16px 20px;
           text-align: center;
+          display: grid;
+          gap: 12px;
+          justify-items: center;
+        }
+        .loadMoreText {
           color: #64748b;
           font-size: 14px;
           font-weight: 700;
+        }
+        .loadMoreButton {
+          min-width: 220px;
+          border: 1px solid #dbe5f1;
+          border-radius: 16px;
+          background: #fff;
+          color: #0f172a;
+          font-size: 15px;
+          font-weight: 800;
+          padding: 12px 18px;
+          cursor: pointer;
+          transition: 0.2s ease;
+        }
+        .loadMoreButton:hover,
+        .loadMoreButton:focus-visible {
+          border-color: #bfdbfe;
+          background: linear-gradient(180deg, #ffffff, #f2f7ff);
+          color: #2563eb;
         }
         .skeletonCard {
           gap: 10px;
@@ -1263,9 +1535,16 @@ export default function CatalogClient({
           }
           .sidebar {
             position: static;
+            grid-template-rows: none;
+            max-height: none;
+            overflow: visible;
           }
           .grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+          .sideLinks {
+            max-height: none;
+            overflow: visible;
           }
         }
         @media (max-width: 900px) {
@@ -1292,10 +1571,24 @@ export default function CatalogClient({
           .buttonRow {
             grid-template-columns: 1fr;
           }
-          .sideLink {
-            min-height: 58px;
-            padding: 0 14px;
+          .sideCategoryButton {
+            min-height: 54px;
+            padding: 0 12px;
             font-size: 16px;
+          }
+          .categoryParentIcon {
+            width: 34px;
+            height: 34px;
+            font-size: 15px;
+          }
+          .subcategoryRail {
+            margin-left: 10px;
+            padding-left: 10px;
+          }
+          .sideSubcategoryButton {
+            min-height: 46px;
+            padding: 6px 10px;
+            font-size: 14px;
           }
         }
       `}</style>

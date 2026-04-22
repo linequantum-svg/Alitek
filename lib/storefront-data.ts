@@ -1,6 +1,11 @@
 import { unstable_cache } from "next/cache";
 import type { Prisma } from "@prisma/client";
-import { normalizeCatalogCategory, sortCatalogCategories, getCatalogCategoryRank } from "@/lib/catalog-taxonomy";
+import {
+  normalizeCatalogCategory,
+  sortCatalogCategories,
+  getCatalogCategoryRank,
+  type CatalogCategoryRecord,
+} from "@/lib/catalog-taxonomy";
 import { prisma } from "@/lib/prisma";
 import { getPromCategories, getPromProducts } from "@/lib/prom-feed";
 
@@ -15,6 +20,7 @@ type CategoryRecord = {
 };
 
 const DB_FALLBACK_TTL_MS = 5 * 60 * 1000;
+const PRIMARY_SOURCE_TIMEOUT_MS = 2500;
 let forcePromFallbackUntil = 0;
 
 export type StorefrontProduct = {
@@ -49,7 +55,9 @@ function parseAttributes(raw: string | null) {
 }
 
 function mapProduct(product: ProductWithImages): StorefrontProduct {
-  const normalizedCategoryName = normalizeCatalogCategory(product.categoryName, product.name, product.brand, product.description);
+  const categoryName =
+    String(product.categoryName || "").trim() ||
+    normalizeCatalogCategory(product.categoryName, product.name, product.brand, product.description);
 
   return {
     id: product.externalId,
@@ -58,7 +66,7 @@ function mapProduct(product: ProductWithImages): StorefrontProduct {
     name: product.name,
     brand: product.brand || "Без бренду",
     categoryId: product.categoryId || null,
-    categoryName: normalizedCategoryName,
+    categoryName: categoryName || "Без категорії",
     price: Number(product.price),
     oldPrice: product.oldPrice ? Number(product.oldPrice) : null,
     available: product.available,
@@ -78,13 +86,9 @@ function mapFallbackProduct(product: any): StorefrontProduct {
       ? product.attributes
       : [];
 
-  const normalizedCategoryName = normalizeCatalogCategory(
-    product?.categoryName,
-    product?.category,
-    product?.name,
-    product?.brand,
-    product?.description
-  );
+  const categoryName =
+    String(product?.categoryName || product?.category || "").trim() ||
+    normalizeCatalogCategory(product?.categoryName, product?.category, product?.name, product?.brand, product?.description);
 
   return {
     id,
@@ -93,7 +97,7 @@ function mapFallbackProduct(product: any): StorefrontProduct {
     name: String(product?.name || "Товар"),
     brand: String(product?.brand || "Без бренду"),
     categoryId: product?.categoryId ? String(product.categoryId) : null,
-    categoryName: normalizedCategoryName,
+    categoryName: categoryName || "Без категорії",
     price: Number(product?.price || 0),
     oldPrice: product?.oldPrice ? Number(product.oldPrice) : null,
     available: Boolean(product?.available),
@@ -109,6 +113,53 @@ function mapFallbackProduct(product: any): StorefrontProduct {
 
 function normalizeText(value: string) {
   return String(value || "").toLowerCase().trim();
+}
+
+function buildStorefrontCategories(
+  products: StorefrontProduct[],
+  sourceCategories: Array<{ id: string; name: string; parentExternalId: string | null }>
+): CategoryRecord[] {
+  const usedIds = new Set(products.map((item) => String(item.categoryId || "").trim()).filter(Boolean));
+  const usedNames = new Set(products.map((item) => normalizeText(item.categoryName)).filter(Boolean));
+  const byId = new Map(sourceCategories.map((item) => [item.id, item]));
+  const includedIds = new Set<string>();
+
+  const includeWithParents = (id: string) => {
+    let currentId: string | null = id;
+    const visited = new Set<string>();
+
+    while (currentId && byId.has(currentId) && !visited.has(currentId)) {
+      visited.add(currentId);
+      includedIds.add(currentId);
+      currentId = byId.get(currentId)?.parentExternalId || null;
+    }
+  };
+
+  for (const id of usedIds) includeWithParents(id);
+
+  const categoriesFromSource = sourceCategories.filter(
+    (item) => includedIds.has(item.id) || usedNames.has(normalizeText(item.name)),
+  );
+
+  const existingNames = new Set(categoriesFromSource.map((item) => normalizeText(item.name)));
+  const unmatchedNames = sortCatalogCategories(
+    products
+      .map((item) => item.categoryName)
+      .filter((name) => name && !existingNames.has(normalizeText(name))),
+  );
+
+  return [
+    ...categoriesFromSource.map((item) => ({
+      id: item.id,
+      name: item.name,
+      parentExternalId: item.parentExternalId,
+    })),
+    ...unmatchedNames.map((name) => ({
+      id: slugifyCategory(name),
+      name,
+      parentExternalId: null,
+    })),
+  ];
 }
 
 function safeDecodeUriComponent(value: string) {
@@ -152,7 +203,16 @@ function sortProducts(items: StorefrontProduct[], sort = "") {
 
 function shouldUsePromFallback(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || "");
-  return /Can't reach database server|PrismaClientInitializationError|PrismaClientKnownRequestError|ECONNREFUSED/i.test(message);
+  return /Can't reach database server|PrismaClientInitializationError|PrismaClientKnownRequestError|ECONNREFUSED|Primary source timeout/i.test(message);
+}
+
+async function withPrimaryTimeout<T>(getPrimary: () => Promise<T>) {
+  return Promise.race<T>([
+    getPrimary(),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Primary source timeout")), PRIMARY_SOURCE_TIMEOUT_MS),
+    ),
+  ]);
 }
 
 async function withPromFallback<T>(label: string, getPrimary: () => Promise<T>, getFallback: () => Promise<T>) {
@@ -161,7 +221,7 @@ async function withPromFallback<T>(label: string, getPrimary: () => Promise<T>, 
   }
 
   try {
-    return await getPrimary();
+    return await withPrimaryTimeout(getPrimary);
   } catch (error) {
     if (!shouldUsePromFallback(error)) throw error;
     forcePromFallbackUntil = Date.now() + DB_FALLBACK_TTL_MS;
@@ -170,14 +230,26 @@ async function withPromFallback<T>(label: string, getPrimary: () => Promise<T>, 
   }
 }
 
-function buildStorefrontCategories(products: StorefrontProduct[]): CategoryRecord[] {
-  const names = sortCatalogCategories(products.map((item) => item.categoryName));
-  return names.map((name) => ({
-    id: slugifyCategory(name),
-    name,
-    parentExternalId: null,
-  }));
-}
+const getCachedCategorySource = unstable_cache(
+  async (): Promise<CatalogCategoryRecord[]> => {
+    const categories = await prisma.category.findMany({
+      orderBy: [{ createdAt: "asc" }, { name: "asc" }],
+      select: {
+        externalId: true,
+        name: true,
+        parentExternalId: true,
+      },
+    });
+
+    return categories.map((item) => ({
+      id: item.externalId,
+      name: item.name,
+      parentExternalId: item.parentExternalId || null,
+    }));
+  },
+  ["storefront-category-source"],
+  { revalidate: 300, tags: ["storefront-categories"] }
+);
 
 const getCachedStorefrontProducts = unstable_cache(
   async (): Promise<StorefrontProduct[]> => {
@@ -195,8 +267,8 @@ const getCachedStorefrontProducts = unstable_cache(
 
 const getCachedCategories = unstable_cache(
   async (): Promise<CategoryRecord[]> => {
-    const products = await getCachedStorefrontProducts();
-    return buildStorefrontCategories(products);
+    const [products, categories] = await Promise.all([getCachedStorefrontProducts(), getCachedCategorySource()]);
+    return buildStorefrontCategories(products, categories);
   },
   ["storefront-categories"],
   { revalidate: 300, tags: ["storefront-categories"] }
@@ -213,8 +285,11 @@ const getCachedBrands = unstable_cache(
 
 const getCachedHomepageData = unstable_cache(
   async () => {
-    const [products, brands] = await Promise.all([getCachedStorefrontProducts(), getCachedBrands()]);
-    const categories = buildStorefrontCategories(products);
+    const [products, brands, categories] = await Promise.all([
+      getCachedStorefrontProducts(),
+      getCachedBrands(),
+      getCachedCategories(),
+    ]);
     const mappedProducts = sortProducts(products);
     const popularProducts = mappedProducts.slice(0, 4);
     const deal =
@@ -250,8 +325,11 @@ const getCachedCatalogPageData = unstable_cache(
     const category = String(categoryName || "").trim();
     const brandName = String(brand || "").trim();
 
-    const [products, brands] = await Promise.all([getCachedStorefrontProducts(), getCachedBrands()]);
-    const categories = buildStorefrontCategories(products);
+    const [products, brands, categories] = await Promise.all([
+      getCachedStorefrontProducts(),
+      getCachedBrands(),
+      getCachedCategories(),
+    ]);
 
     let filtered = products.filter((product) => {
       const haystack = `${product.name} ${product.brand} ${product.categoryName} ${product.vendorCode || ""}`.toLowerCase();
@@ -299,8 +377,7 @@ const getCachedProductPageData = unstable_cache(
 
 const getCachedSitemapData = unstable_cache(
   async () => {
-    const products = await getCachedStorefrontProducts();
-    const categories = buildStorefrontCategories(products);
+    const [products, categories] = await Promise.all([getCachedStorefrontProducts(), getCachedCategories()]);
 
     return {
       categories,
@@ -312,8 +389,15 @@ const getCachedSitemapData = unstable_cache(
 );
 
 async function getFallbackCategories(): Promise<CategoryRecord[]> {
-  const products = await getFallbackProducts();
-  return buildStorefrontCategories(products);
+  const [products, categories] = await Promise.all([getFallbackProducts(), getPromCategories()]);
+  return buildStorefrontCategories(
+    products,
+    categories.map((item) => ({
+      id: item.id,
+      name: item.name,
+      parentExternalId: item.parentExternalId || null,
+    })),
+  );
 }
 
 async function getFallbackProducts(): Promise<StorefrontProduct[]> {

@@ -7,11 +7,12 @@ import FavoritesBadge from "@/components/FavoritesBadge";
 import { getCatalogPageData } from "@/lib/storefront-data";
 
 export const revalidate = 300;
+const CATALOG_PAGE_SIZE = 20;
 
 export default async function CatalogPage() {
   const initialData = await getCatalogPageData({
     page: 1,
-    pageSize: 20,
+    pageSize: CATALOG_PAGE_SIZE,
   });
 
   return (
@@ -37,7 +38,7 @@ export default async function CatalogPage() {
                 ok: true,
                 total: initialData.total,
                 totalPages: initialData.totalPages,
-                categories: initialData.categories.map((item) => item.name),
+                categories: initialData.categories,
                 products: initialData.products.map((product) => ({
                   id: product.id,
                   slug: product.slug,
