@@ -25,47 +25,44 @@ export default function SiteFooter() {
             </div>
           </div>
 
-          <div className="footerColumn">
-            <div className="footerTitle">Навігація</div>
+          <div className="footerInfoGrid">
+            <div className="footerInfoHead">Навігація</div>
+            <div />
+            <div className="footerInfoHead">Контакти</div>
 
             <Link href="/catalog" className="footerLink">
               Каталог
             </Link>
-            <Link href="/favorites" className="footerLink">
-              Обране
-            </Link>
-            <Link href="/contact" className="footerLink">
-              Контакти
-            </Link>
-            <Link href="/delivery-payment" className="footerLink">
-              Доставка та оплата
-            </Link>
-          </div>
-
-          <div className="footerColumn">
             <Link href="/privacy-policy" className="footerLink">
               Політика конфіденційності
+            </Link>
+            <a href={SITE_CONFIG.phoneHref} className="footerLink">
+              {SITE_CONFIG.phoneDisplay}
+            </a>
+
+            <Link href="/favorites" className="footerLink">
+              Обране
             </Link>
             <Link href="/returns-exchange" className="footerLink">
               Повернення та обмін
             </Link>
-            <Link href="/public-offer" className="footerLink">
-              Публічна оферта
-            </Link>
-          </div>
-
-          <div className="footerColumn">
-            <div className="footerTitle">Контакти</div>
-
-            <a href={SITE_CONFIG.phoneHref} className="footerLink">
-              {SITE_CONFIG.phoneDisplay}
-            </a>
             <a href={getTelegramProfileUrl()} target="_blank" rel="noreferrer" className="footerLink">
               {SITE_CONFIG.telegramDisplay}
             </a>
+
+            <Link href="/contact" className="footerLink">
+              Контакти
+            </Link>
+            <Link href="/public-offer" className="footerLink">
+              Публічна оферта
+            </Link>
             <a href={`mailto:${SITE_CONFIG.email}`} className="footerLink">
               {SITE_CONFIG.email}
             </a>
+
+            <Link href="/delivery-payment" className="footerLink footerWideLink">
+              Доставка та оплата
+            </Link>
           </div>
         </div>
       </footer>
@@ -81,8 +78,9 @@ export default function SiteFooter() {
           margin: 0 auto;
           padding: 28px 18px 36px;
           display: grid;
-          grid-template-columns: 1.4fr 1fr 1fr 1fr;
+          grid-template-columns: 1.4fr minmax(0, 2.1fr);
           gap: 24px;
+          align-items: start;
         }
         .brandRow {
           display: inline-flex;
@@ -99,10 +97,23 @@ export default function SiteFooter() {
           line-height: 1.7;
           max-width: 520px;
         }
+        .footerInfoGrid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 18px 28px;
+          align-content: start;
+          min-width: 0;
+        }
         .footerColumn {
           display: grid;
           gap: 10px;
           align-content: start;
+        }
+        .footerInfoHead {
+          font-size: 18px;
+          font-weight: 900;
+          color: #0f172a;
+          margin-bottom: 8px;
         }
         .footerTitle {
           font-size: 18px;
@@ -114,10 +125,25 @@ export default function SiteFooter() {
           color: #0f172a;
           text-decoration: none;
           font-weight: 600;
+          min-width: 0;
+          word-break: break-word;
+        }
+        .footerWideLink {
+          grid-column: 1 / 2;
         }
         @media (max-width: 900px) {
           .footerInner {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
+          }
+          .footerInfoGrid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .footerInfoHead:nth-child(3) {
+            grid-column: 1 / -1;
+            margin-top: 8px;
+          }
+          .footerWideLink {
+            grid-column: 1 / -1;
           }
         }
         @media (max-width: 720px) {
@@ -125,6 +151,13 @@ export default function SiteFooter() {
             grid-template-columns: 1fr;
             padding: 24px 12px 32px;
             gap: 20px;
+          }
+          .footerInfoGrid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .footerInfoHead {
+            margin: 8px 0 0;
           }
           .footerLogoFull {
             width: 200px;
