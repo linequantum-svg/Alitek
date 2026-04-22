@@ -183,6 +183,40 @@ function getTopAncestor(record: CatalogCategoryRecord, byId: Map<string, Catalog
   return current;
 }
 
+const PROM_ROOT_DISPLAY_ORDER = [
+  "Маркери",
+  "Годинники",
+  "Навушники",
+  "Комплекти",
+  "Світильники",
+  "Адаптери",
+  "Павербанки, зарядні пристрої",
+  "Чохли для телефонів",
+  "Комп'ютерні мишки",
+  "Інше",
+];
+
+const PROM_CHILD_DISPLAY_ORDER = [
+  "Годинники Skmei",
+  "Годинники OLEVS",
+  "Годинники Olevs",
+  "Смарт годинники",
+  "Смарт-годинники",
+  "Дитячі смарт-годинники",
+  "Дитячі годинники",
+  "Фітнес трекери",
+  "Ремінці",
+  "Навушники TWS",
+  "Накладні навушники",
+  "Чохли для навушників",
+];
+
+function getPromDisplayRank(name: string, orderedNames: string[]) {
+  const normalizedName = normalize(name);
+  const directIndex = orderedNames.findIndex((item) => normalize(item) === normalizedName);
+  return directIndex === -1 ? Number.MAX_SAFE_INTEGER : directIndex;
+}
+
 function getHierarchicalGroups(records: CatalogCategoryRecord[]) {
   const uniqueRecords = records.filter(
     (record, index, arr) => arr.findIndex((item) => item.id === record.id || normalize(item.name) === normalize(record.name)) === index,
@@ -207,13 +241,22 @@ function getHierarchicalGroups(records: CatalogCategoryRecord[]) {
     }
   }
 
-  return rootOrder.map(({ id: rootId, name: rootName }) => {
-    const items = groupsMap.get(rootId) || [];
-    return {
-      title: rootName,
-      items: items.length > 0 ? items : [rootName],
-    };
-  });
+  return rootOrder
+    .map(({ id: rootId, name: rootName }) => {
+      const items = [...(groupsMap.get(rootId) || [])].sort((a, b) => {
+        const rankDiff = getPromDisplayRank(a, PROM_CHILD_DISPLAY_ORDER) - getPromDisplayRank(b, PROM_CHILD_DISPLAY_ORDER);
+        return rankDiff !== 0 ? rankDiff : a.localeCompare(b, "uk");
+      });
+
+      return {
+        title: rootName,
+        items: items.length > 0 ? items : [rootName],
+      };
+    })
+    .sort((a, b) => {
+      const rankDiff = getPromDisplayRank(a.title, PROM_ROOT_DISPLAY_ORDER) - getPromDisplayRank(b.title, PROM_ROOT_DISPLAY_ORDER);
+      return rankDiff !== 0 ? rankDiff : a.title.localeCompare(b.title, "uk");
+    });
 }
 
 export function getCatalogCategoryRank(categoryName: string) {

@@ -115,6 +115,29 @@ function normalizeText(value: string) {
   return String(value || "").toLowerCase().trim();
 }
 
+function sortCategorySourceByPromOrder(
+  categories: Array<{ id: string; name: string; parentExternalId: string | null }>,
+  promCategories: Array<{ id: string; name: string; parentExternalId: string | null }>,
+) {
+  if (!promCategories.length) return categories;
+
+  const indexById = new Map(promCategories.map((item, index) => [String(item.id).trim(), index]));
+
+  return [...categories].sort((a, b) => {
+    const aIndex = indexById.get(String(a.id).trim());
+    const bIndex = indexById.get(String(b.id).trim());
+
+    if (typeof aIndex === "number" && typeof bIndex === "number") {
+      return aIndex - bIndex;
+    }
+
+    if (typeof aIndex === "number") return -1;
+    if (typeof bIndex === "number") return 1;
+
+    return a.name.localeCompare(b.name, "uk");
+  });
+}
+
 function buildStorefrontCategories(
   products: StorefrontProduct[],
   sourceCategories: Array<{ id: string; name: string; parentExternalId: string | null }>
@@ -241,11 +264,15 @@ const getCachedCategorySource = unstable_cache(
       },
     });
 
-    return categories.map((item) => ({
+    const mappedCategories = categories.map((item) => ({
       id: item.externalId,
       name: item.name,
       parentExternalId: item.parentExternalId || null,
     }));
+
+    const promCategories = await getPromCategories().catch(() => []);
+
+    return sortCategorySourceByPromOrder(mappedCategories, promCategories);
   },
   ["storefront-category-source"],
   { revalidate: 300, tags: ["storefront-categories"] }
